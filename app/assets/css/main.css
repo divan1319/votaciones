@@ -2,51 +2,150 @@
 @import "@nuxt/ui";
 
 @layer base {
+  :root {
+    --cds-background: #161616;
+    --cds-layer-01: #262626;
+    --cds-layer-02: #393939;
+    --cds-border-subtle: #393939;
+    --cds-border-strong: #525252;
+    --cds-interactive: #0f62fe;
+    --cds-text-primary: #f4f4f4;
+    --cds-text-secondary: #c6c6c6;
+    --cds-text-helper: #8d8d8d;
+  }
+
   body {
-    @apply bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-300;
-    background-image: 
-      radial-gradient(at 15% 10%, rgba(16, 185, 129, 0.07) 0px, transparent 45%),
-      radial-gradient(at 85% 85%, rgba(245, 158, 11, 0.05) 0px, transparent 40%),
-      radial-gradient(at 50% 50%, rgba(15, 23, 42, 1) 0%, rgba(2, 6, 23, 1) 100%);
-    background-attachment: fixed;
+    background-color: #161616;
+    color: #f4f4f4;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
     min-height: 100vh;
   }
 }
 
-/* Custom scrollbars for compact panels */
+/* Carbon UI Shell Header (48px fixed) */
+.carbon-header {
+  height: 3rem; /* 48px */
+  background-color: #161616;
+  border-bottom: 1px solid #393939;
+}
+
+/* Carbon Flat Container Tile */
+.carbon-tile {
+  background-color: #262626;
+  border: 1px solid #393939;
+  border-radius: 2px;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.carbon-tile:hover {
+  border-color: #525252;
+}
+
+.carbon-tile-subtle {
+  background-color: #1c1c1c;
+  border: 1px solid #333333;
+  border-radius: 2px;
+}
+
+/* Carbon Table Styling */
+.carbon-table-header {
+  background-color: #262626;
+  border-bottom: 1px solid #393939;
+  color: #c6c6c6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Carbon Flat Tabs */
+.carbon-tab {
+  height: 2.75rem;
+  padding: 0 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid transparent;
+  color: #c6c6c6;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.carbon-tab:hover {
+  background-color: rgba(57, 57, 57, 0.4);
+  color: #ffffff;
+}
+
+.carbon-tab-active {
+  border-bottom-color: #0f62fe !important;
+  color: #ffffff !important;
+  background-color: #262626;
+}
+
+/* Carbon Tags / Badges (Sharp & High Contrast) */
+.carbon-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 1px;
+}
+
+.carbon-tag-blue {
+  background-color: rgba(15, 98, 254, 0.15);
+  color: #78a9ff;
+  border: 1px solid rgba(15, 98, 254, 0.4);
+}
+
+.carbon-tag-green {
+  background-color: rgba(36, 161, 72, 0.15);
+  color: #42be65;
+  border: 1px solid rgba(36, 161, 72, 0.4);
+}
+
+.carbon-tag-red {
+  background-color: rgba(218, 30, 40, 0.15);
+  color: #ff8389;
+  border: 1px solid rgba(218, 30, 40, 0.4);
+}
+
+.carbon-tag-purple {
+  background-color: rgba(138, 63, 252, 0.15);
+  color: #d4bbff;
+  border: 1px solid rgba(138, 63, 252, 0.4);
+}
+
+.carbon-tag-gray {
+  background-color: rgba(82, 82, 82, 0.2);
+  color: #c6c6c6;
+  border: 1px solid rgba(82, 82, 82, 0.4);
+}
+
+.carbon-tag-warm {
+  background-color: rgba(241, 194, 27, 0.15);
+  color: #f1c21b;
+  border: 1px solid rgba(241, 194, 27, 0.4);
+}
+
+/* Custom crisp scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #161616;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
-  border-radius: 9999px;
+  background: #393939;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.5);
-}
-
-/* Pageant Crown and Gold Accents */
-.badge-gold {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
-}
-
-.card-gala {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.5);
-}
-
-.card-gala-hover {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.card-gala-hover:hover {
-  border-color: rgba(16, 185, 129, 0.4);
-  box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.12);
-  transform: translateY(-2px);
+  background: #525252;
 }

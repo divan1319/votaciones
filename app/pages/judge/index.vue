@@ -4,107 +4,114 @@ definePageMeta({
   middleware: 'judge',
 });
 
+useHead({
+  title: 'Mis Rondas de Calificación',
+});
+
 const { data: roundsList, status, refresh } = await useFetch('/api/judge/rounds');
 </script>
 
 <template>
-  <div>
+  <div class="space-y-6">
     <!-- SKELETON LOADING -->
     <div v-if="status === 'pending'" class="space-y-6">
       <div class="space-y-2">
-        <USkeleton class="h-8 w-64 rounded-xl" />
-        <USkeleton class="h-4 w-96 rounded" />
+        <USkeleton class="h-8 w-64 rounded-none" />
+        <USkeleton class="h-4 w-96 rounded-none" />
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-        <USkeleton v-for="i in 2" :key="i" class="h-60 rounded-3xl" />
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+        <USkeleton v-for="i in 2" :key="i" class="h-60 rounded-none" />
       </div>
     </div>
 
     <!-- MAIN LIST -->
     <div v-else class="space-y-6">
-      <div>
-        <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1">
-          <UIcon name="lucide:vote" class="w-3.5 h-3.5 text-amber-400" />
-          <span>Panel de Juez Oficial</span>
+      <!-- Carbon Header Toolbar -->
+      <div class="border-b border-[#393939] pb-6">
+        <div class="text-[11px] font-mono uppercase tracking-wider text-[#d4bbff] font-semibold mb-1">
+          Asignaciones de Jurado
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Mis Rondas de Calificación</h1>
-        <p class="text-xs sm:text-sm text-slate-400 mt-1">Selecciona la ronda activa para emitir tus calificaciones definitivas</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Mis Rondas de Calificación</h1>
+        <p class="text-xs sm:text-sm text-[#c6c6c6] mt-1 font-mono">
+          Selecciona una fase eliminatoria activa para emitir tus calificaciones oficiales
+        </p>
       </div>
 
       <!-- EMPTY STATE -->
       <div
         v-if="!roundsList || roundsList.length === 0"
-        class="text-center py-16 px-4 bg-slate-900/40 border border-slate-800/80 rounded-3xl backdrop-blur-sm"
+        class="carbon-tile p-12 text-center"
       >
-        <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4">
-          <UIcon name="lucide:inbox" class="w-8 h-8" />
+        <div class="w-12 h-12 bg-[#1c1c1c] border border-[#393939] text-[#78a9ff] flex items-center justify-center mx-auto mb-3">
+          <UIcon name="lucide:inbox" class="w-6 h-6" />
         </div>
-        <h3 class="text-lg font-bold text-white">No tienes rondas asignadas por el momento</h3>
-        <p class="text-xs sm:text-sm text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-          El administrador te notificará en cuanto una ronda sea aperturada para evaluación en el certamen.
+        <h3 class="text-base font-bold text-white">No tienes rondas asignadas por el momento</h3>
+        <p class="text-xs text-[#8d8d8d] max-w-sm mx-auto mt-1 mb-6 font-mono">
+          El administrador activará la sesión en cuanto una fase comience en el escenario.
         </p>
-        <UButton variant="outline" color="neutral" icon="lucide:refresh-cw" size="sm" @click="refresh">
-          Verificar Nuevas Rondas
-        </UButton>
+        <button
+          @click="refresh"
+          class="h-9 px-4 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white text-xs font-semibold inline-flex items-center gap-2"
+        >
+          <UIcon name="lucide:refresh-cw" class="w-3.5 h-3.5 text-[#78a9ff]" />
+          <span>Comprobar Nuevas Asignaciones</span>
+        </button>
       </div>
 
-      <!-- ROUNDS GRID -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- ROUNDS GRID (Carbon Tiles) -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div
           v-for="r in roundsList"
           :key="r.roundId"
-          class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 flex flex-col justify-between hover:border-slate-700 hover:shadow-xl hover:shadow-emerald-500/5 transition duration-200"
+          class="carbon-tile p-6 flex flex-col justify-between"
         >
           <div>
-            <div class="flex items-start justify-between gap-3 mb-4">
+            <div class="flex items-start justify-between gap-3 mb-4 border-b border-[#393939] pb-3">
               <div>
-                <span class="text-xs uppercase tracking-wider font-semibold text-emerald-400 font-mono">
-                  {{ r.contestName }} &bull; {{ r.editionName }}
+                <span class="text-[11px] uppercase font-mono tracking-wider font-semibold text-[#78a9ff]">
+                  {{ r.contestName }} &bull; Edición {{ r.editionName }}
                 </span>
-                <h2 class="text-xl sm:text-2xl font-black text-white mt-1">{{ r.roundName }}</h2>
+                <h2 class="text-xl font-bold text-white mt-1">{{ r.roundName }}</h2>
               </div>
 
-              <UBadge
-                :color="r.isSubmitted ? 'neutral' : r.roundStatus === 'open' ? 'success' : 'warning'"
-                variant="subtle"
-                size="sm"
-                class="flex-shrink-0"
+              <span
+                class="carbon-tag"
+                :class="r.isSubmitted ? 'carbon-tag-gray' : r.roundStatus === 'open' ? 'carbon-tag-green' : 'carbon-tag-warm'"
               >
-                {{ r.isSubmitted ? 'Enviada (Bloqueada)' : r.roundStatus === 'open' ? 'Abierta para Votar' : 'Pendiente' }}
-              </UBadge>
+                {{ r.isSubmitted ? 'SELLADA (INMUTABLE)' : r.roundStatus === 'open' ? 'HABILITADA' : 'PENDIENTE' }}
+              </span>
             </div>
 
-            <div class="bg-slate-950/40 p-3.5 rounded-2xl border border-slate-800/60 text-xs text-slate-400 mb-6 space-y-1.5">
-              <div class="flex justify-between">
+            <div class="space-y-1.5 text-xs font-mono text-[#8d8d8d] mb-6">
+              <div class="flex justify-between py-1 border-b border-[#333333]">
                 <span>Escala Permitida:</span>
-                <span class="text-emerald-400 font-mono font-bold">[{{ r.scaleMin }} a {{ r.scaleMax }} pts]</span>
+                <span class="text-[#78a9ff] font-bold">[{{ r.scaleMin }} &ndash; {{ r.scaleMax }} pts]</span>
               </div>
-              <div class="flex justify-between">
-                <span>Etapa del Certamen:</span>
-                <span class="text-slate-200 font-medium">Ronda {{ r.roundPosition }}</span>
+              <div class="flex justify-between py-1 border-b border-[#333333]">
+                <span>Fase del Certamen:</span>
+                <span class="text-white">Ronda {{ r.roundPosition }}</span>
               </div>
             </div>
 
-            <div v-if="r.isSubmitted" class="p-3 bg-emerald-950/30 rounded-xl border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-2 mb-4">
-              <UIcon name="lucide:check-circle" class="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <span>Tus calificaciones fueron selladas de forma inmutable el {{ new Date(r.submittedAt!).toLocaleTimeString() }}.</span>
+            <div v-if="r.isSubmitted" class="p-3 bg-[#1c1c1c] border-l-4 border-l-[#24a148] text-xs text-[#c6c6c6] font-mono flex items-center gap-2 mb-4">
+              <UIcon name="lucide:check-circle" class="w-4 h-4 text-[#42be65] flex-shrink-0" />
+              <span>Calificaciones selladas el {{ new Date(r.submittedAt!).toLocaleTimeString() }}.</span>
             </div>
           </div>
 
-          <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
-            <span class="text-xs text-slate-500">
-              {{ r.roundStatus === 'open' && !r.isSubmitted ? 'Votación habilitada' : 'Solo lectura' }}
+          <div class="pt-4 border-t border-[#393939] flex items-center justify-between text-xs">
+            <span class="font-mono text-[11px] text-[#8d8d8d]">
+              {{ r.roundStatus === 'open' && !r.isSubmitted ? 'VOTACIÓN ACTIVA' : 'MODO CONSULTA' }}
             </span>
 
             <NuxtLink :to="`/judge/rounds/${r.roundId}`">
-              <UButton
-                :color="r.isSubmitted ? 'neutral' : 'primary'"
-                :variant="r.isSubmitted ? 'outline' : 'solid'"
-                size="md"
-                :trailing-icon="r.isSubmitted ? 'lucide:eye' : 'lucide:arrow-right'"
+              <button
+                class="h-9 px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer"
+                :class="r.isSubmitted ? 'bg-[#262626] hover:bg-[#393939] text-[#c6c6c6] border border-[#525252]' : 'bg-[#0f62fe] hover:bg-[#0353e9] text-white'"
               >
-                {{ r.isSubmitted ? 'Ver Mis Calificaciones' : 'Entrar a Calificar' }}
-              </UButton>
+                <span>{{ r.isSubmitted ? 'Ver Mis Calificaciones' : 'Entrar a Calificar' }}</span>
+                <UIcon :name="r.isSubmitted ? 'lucide:eye' : 'lucide:arrow-right'" class="w-3.5 h-3.5" />
+              </button>
             </NuxtLink>
           </div>
         </div>

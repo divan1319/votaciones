@@ -10,10 +10,11 @@ const roundId = route.params.id as string;
 const { data: roundData, status: roundStatus, refresh: refreshRound } = await useFetch(`/api/judge/rounds/${roundId}`);
 const { data: savedScores, refresh: refreshScores } = await useFetch(`/api/judge/rounds/${roundId}/scores`);
 
-// Calificaciones locales reactivas: participantId -> criterionId -> number
-const localScores = reactive<Record<string, Record<string, number>>>({});
+useHead({
+  title: () => roundData.value ? `Cabina: ${roundData.value.round.name}` : 'Cabina de Juez',
+});
 
-// Participante seleccionado actualmente en la cabina
+const localScores = reactive<Record<string, Record<string, number>>>({});
 const selectedParticipantId = ref<string>('');
 
 const isSavingDraft = ref(false);
@@ -22,7 +23,6 @@ const isConfirmModalOpen = ref(false);
 const errorMsg = ref('');
 const successMsg = ref('');
 
-// Inicializar scores locales desde los guardados en BD
 watchEffect(() => {
   if (roundData.value?.participants && roundData.value.participants.length > 0) {
     if (!selectedParticipantId.value) {
@@ -44,7 +44,6 @@ watchEffect(() => {
   }
 });
 
-// Comprobar si un participante tiene todos los criterios calificados
 function isParticipantComplete(participantId: string): boolean {
   if (!roundData.value?.criteria) return false;
   const pScores = localScores[participantId];
@@ -57,7 +56,6 @@ function isParticipantComplete(participantId: string): boolean {
   return true;
 }
 
-// Conteo total de participantes completados
 const completedCount = computed(() => {
   if (!roundData.value?.participants) return 0;
   return roundData.value.participants.filter((p: any) => isParticipantComplete(p.id)).length;
@@ -73,7 +71,6 @@ const selectedParticipant = computed(() => {
   return roundData.value?.participants?.find((p: any) => p.id === selectedParticipantId.value);
 });
 
-// Guardar borrador
 async function saveDraft() {
   if (roundData.value?.isSubmitted) return;
   isSavingDraft.value = true;
@@ -107,7 +104,6 @@ async function saveDraft() {
   }
 }
 
-// Enviar definitivo
 async function submitFinal() {
   if (!isAllComplete.value) {
     errorMsg.value = 'Debes calificar a todos los participantes antes de poder enviar.';
@@ -119,16 +115,14 @@ async function submitFinal() {
   errorMsg.value = '';
 
   try {
-    // 1. Guardar borrador actual
     await saveDraft();
 
-    // 2. Enviar confirmación definitiva
     await $fetch(`/api/judge/rounds/${roundId}/submit`, {
       method: 'POST',
     });
 
     isConfirmModalOpen.value = false;
-    successMsg.value = '¡Calificaciones enviadas con éxito! Han sido bloqueadas de forma inmutable.';
+    successMsg.value = '¡Calificaciones enviadas y selladas de forma inmutable!';
     await refreshRound();
   } catch (err: any) {
     errorMsg.value = err.data?.message || err.message;
@@ -139,192 +133,174 @@ async function submitFinal() {
 </script>
 
 <template>
-  <div>
+  <div class="space-y-6">
     <!-- SKELETON LOADING -->
     <div v-if="roundStatus === 'pending'" class="space-y-6">
-      <USkeleton class="h-4 w-40 rounded" />
-      <USkeleton class="h-28 w-full rounded-3xl" />
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4">
-        <USkeleton class="lg:col-span-4 h-96 rounded-3xl" />
-        <USkeleton class="lg:col-span-8 h-96 rounded-3xl" />
+      <USkeleton class="h-4 w-40 rounded-none" />
+      <USkeleton class="h-28 w-full rounded-none" />
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-4">
+        <USkeleton class="lg:col-span-4 h-96 rounded-none" />
+        <USkeleton class="lg:col-span-8 h-96 rounded-none" />
       </div>
     </div>
 
     <!-- MAIN BOOTH -->
     <div v-else-if="roundData" class="space-y-6">
-      <!-- Breadcrumb -->
-      <div class="flex items-center gap-2 text-xs text-slate-400">
-        <NuxtLink to="/judge" class="hover:text-emerald-400 transition flex items-center gap-1">
-          <UIcon name="lucide:arrow-left" class="w-3 h-3" />
-          Mis Rondas
+      <!-- Carbon Breadcrumb -->
+      <div class="flex items-center gap-2 text-xs font-mono text-[#8d8d8d]">
+        <NuxtLink to="/judge" class="hover:underline text-[#c6c6c6] flex items-center gap-1">
+          <UIcon name="lucide:arrow-left" class="w-3.5 h-3.5" />
+          <span>Mis Rondas</span>
         </NuxtLink>
         <span>/</span>
-        <span class="text-slate-200 font-medium">{{ roundData.round.name }}</span>
+        <span class="text-white font-medium">{{ roundData.round.name }}</span>
       </div>
 
-      <!-- Inmutability Alert if already submitted -->
-      <div v-if="roundData.isSubmitted">
-        <UAlert
-          color="success"
-          variant="subtle"
-          title="Calificaciones Enviadas y Bloqueadas"
-          :description="`Has emitido tus votos para esta ronda el ${new Date(roundData.submittedAt).toLocaleString()}. En estricto cumplimiento de la regla de inmutabilidad, tus calificaciones no pueden ser alteradas.`"
-          icon="lucide:check-circle"
-        />
+      <!-- Inmutability Alert if submitted -->
+      <div v-if="roundData.isSubmitted" class="p-4 bg-[#0e6027]/20 border-l-4 border-[#24a148] text-xs text-[#f4f4f4] space-y-1 font-mono">
+        <div class="flex items-center gap-2 font-bold text-[#42be65] uppercase tracking-wider">
+          <UIcon name="lucide:check-circle" class="w-4 h-4" />
+          <span>Calificaciones Selladas e Inmutables</span>
+        </div>
+        <p class="font-sans text-xs text-[#c6c6c6]">
+          Votos emitidos y registrados el {{ new Date(roundData.submittedAt).toLocaleString() }}. En cumplimiento de la regla de inmutabilidad, tus calificaciones no pueden ser alteradas.
+        </p>
       </div>
 
-      <!-- Round Info Banner -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-7 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl backdrop-blur-md">
+      <!-- Round Info Toolbar -->
+      <div class="carbon-tile p-6 sm:p-7 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <span class="text-xs uppercase tracking-wider font-semibold text-emerald-400 font-mono">
+          <span class="text-[11px] uppercase font-mono tracking-wider font-semibold text-[#78a9ff]">
             {{ roundData.contest.name }} &bull; Edición {{ roundData.edition.name }}
           </span>
-          <h1 class="text-2xl sm:text-3xl font-black text-white mt-1">{{ roundData.round.name }}</h1>
-          <p class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-            <span>Escala: <strong class="text-emerald-400 font-mono font-bold">[{{ roundData.edition.scaleMin }} a {{ roundData.edition.scaleMax }} pts]</strong></span>
+          <h1 class="text-2xl sm:text-3xl font-bold text-white mt-1">{{ roundData.round.name }}</h1>
+          <p class="text-xs font-mono text-[#8d8d8d] mt-1 flex flex-wrap gap-3">
+            <span>ESCALA: <strong class="text-[#78a9ff]">[{{ roundData.edition.scaleMin }} &ndash; {{ roundData.edition.scaleMax }} pts]</strong></span>
             <span>&bull;</span>
-            <span>Método: <strong class="capitalize text-slate-200">{{ roundData.edition.scoringMethod === 'average' ? 'Promedio' : 'Suma' }}</strong></span>
+            <span>MÉTODO: <strong class="text-white uppercase">{{ roundData.edition.scoringMethod === 'average' ? 'Promedio' : 'Suma' }}</strong></span>
           </p>
         </div>
 
-        <!-- Progress Widget with UProgress -->
-        <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 w-full md:w-72">
-          <div class="flex justify-between items-center text-xs mb-1.5">
-            <span class="text-slate-400">Progreso Evaluación:</span>
-            <span class="font-mono font-bold text-emerald-400">
-              {{ completedCount }} / {{ totalCount }}
-            </span>
+        <!-- Evaluation Progress Tracker -->
+        <div class="bg-[#1c1c1c] p-3.5 border border-[#393939] w-full md:w-64 space-y-1.5">
+          <div class="flex justify-between items-center text-xs font-mono">
+            <span class="text-[#8d8d8d]">Progreso:</span>
+            <span class="font-bold text-[#78a9ff]">{{ completedCount }} / {{ totalCount }} participantes</span>
           </div>
-          <UProgress
-            :model-value="completedCount"
-            :max="totalCount || 1"
-            color="primary"
-            size="md"
-          />
+          <div class="w-full bg-[#262626] h-2">
+            <div
+              class="bg-[#0f62fe] h-2 transition-all duration-300"
+              :style="{ width: `${totalCount ? (completedCount / totalCount) * 100 : 0}%` }"
+            />
+          </div>
         </div>
       </div>
 
-      <!-- Alerts -->
-      <div v-if="errorMsg">
-        <UAlert
-          color="error"
-          variant="subtle"
-          title="Atención"
-          :description="errorMsg"
-          icon="lucide:alert-circle"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="errorMsg = ''"
-        />
+      <!-- Notifications -->
+      <div v-if="errorMsg" class="p-3.5 bg-[#750e13]/20 border-l-4 border-[#da1e28] text-xs text-[#ff8389] flex items-center justify-between">
+        <span>{{ errorMsg }}</span>
+        <button @click="errorMsg = ''" class="text-[#ff8389] hover:text-white">✕</button>
       </div>
 
-      <div v-if="successMsg">
-        <UAlert
-          color="success"
-          variant="subtle"
-          title="Operación exitosa"
-          :description="successMsg"
-          icon="lucide:check-circle"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="successMsg = ''"
-        />
+      <div v-if="successMsg" class="p-3.5 bg-[#0e6027]/20 border-l-4 border-[#24a148] text-xs text-[#42be65] flex items-center justify-between">
+        <span>{{ successMsg }}</span>
+        <button @click="successMsg = ''" class="text-[#42be65] hover:text-white">✕</button>
       </div>
 
-      <!-- Mobile / Tablet Quick Participant Selector Carousel -->
-      <div class="block lg:hidden bg-slate-900/80 border border-slate-800 p-3 rounded-2xl">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2 px-1">
-          Participantes (Toca para calificar):
+      <!-- Mobile / Tablet Quick Participant Switcher -->
+      <div class="block lg:hidden carbon-tile p-3">
+        <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-[#8d8d8d] block mb-2 px-1">
+          Participantes (Toca para seleccionar):
         </span>
         <div class="flex gap-2 overflow-x-auto pb-1">
           <button
             v-for="p in roundData.participants"
             :key="p.id"
             @click="selectedParticipantId = p.id"
-            class="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap border transition"
-            :class="selectedParticipantId === p.id ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow' : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'"
+            class="px-3 py-1.5 text-xs font-mono font-medium flex items-center gap-2 whitespace-nowrap border transition cursor-pointer"
+            :class="selectedParticipantId === p.id ? 'bg-[#0f62fe] text-white border-transparent' : 'bg-[#1c1c1c] text-[#c6c6c6] border-[#393939] hover:border-[#525252]'"
           >
-            <span class="font-mono font-bold text-emerald-400">#{{ p.code }}</span>
+            <span class="font-bold">#{{ p.code }}</span>
             <span>{{ p.name.split(' ')[0] }}</span>
             <span
-              class="w-2 h-2 rounded-full"
-              :class="isParticipantComplete(p.id) ? 'bg-emerald-400' : 'bg-slate-600'"
+              class="w-1.5 h-1.5 rounded-none"
+              :class="isParticipantComplete(p.id) ? 'bg-[#42be65]' : 'bg-[#8d8d8d]'"
             />
           </button>
         </div>
       </div>
 
-      <!-- Voting Workspace -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Desktop Left Column: Participant Selector -->
-        <div class="hidden lg:block lg:col-span-4 space-y-3">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
-            Lista de Participantes ({{ roundData.participants?.length || 0 }})
+      <!-- Workspace 2-Column Split View -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Desktop Left: Candidate List -->
+        <div class="hidden lg:block lg:col-span-4 space-y-2">
+          <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-[#8d8d8d] px-1">
+            Nómina de Participantes ({{ roundData.participants?.length || 0 }})
           </h3>
-          <div class="space-y-2 max-h-[640px] overflow-y-auto pr-1">
+          <div class="space-y-1.5 max-h-[620px] overflow-y-auto pr-1">
             <button
               v-for="p in roundData.participants"
               :key="p.id"
               @click="selectedParticipantId = p.id"
-              class="w-full text-left p-4 rounded-2xl border transition flex items-center justify-between gap-3"
-              :class="selectedParticipantId === p.id ? 'bg-slate-900 border-emerald-500/60 shadow-lg shadow-emerald-500/5 ring-1 ring-emerald-500/30' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'"
+              class="w-full text-left p-3.5 border transition flex items-center justify-between gap-3 cursor-pointer"
+              :class="selectedParticipantId === p.id ? 'bg-[#262626] border-[#0f62fe] border-l-4 shadow-sm' : 'bg-[#1c1c1c] border-[#333333] hover:border-[#525252]'"
             >
               <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-mono font-bold text-emerald-400 flex-shrink-0">
+                <div class="w-8 h-8 bg-[#161616] border border-[#525252] flex items-center justify-center font-mono font-bold text-xs text-[#78a9ff] flex-shrink-0">
                   {{ p.code }}
                 </div>
                 <div class="min-w-0">
-                  <h4 class="font-bold text-white text-sm truncate">{{ p.name }}</h4>
-                  <p class="text-xs text-slate-400 font-mono">Código: {{ p.code }}</p>
+                  <h4 class="font-medium text-white text-xs truncate">{{ p.name }}</h4>
+                  <p class="text-[11px] text-[#8d8d8d] font-mono">Código: {{ p.code }}</p>
                 </div>
               </div>
 
-              <UBadge
-                :color="isParticipantComplete(p.id) ? 'success' : 'neutral'"
-                variant="subtle"
-                size="xs"
-                class="flex-shrink-0"
+              <span
+                class="carbon-tag flex-shrink-0"
+                :class="isParticipantComplete(p.id) ? 'carbon-tag-green' : 'carbon-tag-gray'"
               >
-                {{ isParticipantComplete(p.id) ? 'Completo' : 'Pendiente' }}
-              </UBadge>
+                {{ isParticipantComplete(p.id) ? 'COMPLETO' : 'PENDIENTE' }}
+              </span>
             </button>
           </div>
         </div>
 
-        <!-- Right Column: Scoring Form for Selected Participant -->
-        <div class="lg:col-span-8 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-xl backdrop-blur-md">
+        <!-- Right: Scoring Form -->
+        <div class="lg:col-span-8 carbon-tile p-6 sm:p-8 flex flex-col justify-between">
           <div v-if="selectedParticipant">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-2">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#393939] pb-4 mb-6 gap-2">
               <div>
-                <span class="text-xs font-mono font-bold text-emerald-400">
-                  PARTICIPANTE CÓDIGO #{{ selectedParticipant.code }}
+                <span class="text-xs font-mono font-bold text-[#78a9ff]">
+                  CANDIDATA OFICIAL #{{ selectedParticipant.code }}
                 </span>
-                <h2 class="text-2xl sm:text-3xl font-black text-white mt-0.5">
+                <h2 class="text-xl sm:text-2xl font-bold text-white mt-0.5">
                   {{ selectedParticipant.name }}
                 </h2>
               </div>
 
-              <div class="text-left sm:text-right">
-                <span class="text-xs text-slate-400">Rango permitido:</span>
-                <div class="font-mono text-xs font-bold text-emerald-300">
-                  {{ roundData.edition.scaleMin }} a {{ roundData.edition.scaleMax }} puntos
+              <div class="text-left sm:text-right font-mono text-xs">
+                <span class="text-[#8d8d8d]">Rango permitido:</span>
+                <div class="font-bold text-[#78a9ff]">
+                  {{ roundData.edition.scaleMin }} &ndash; {{ roundData.edition.scaleMax }} puntos
                 </div>
               </div>
             </div>
 
-            <!-- Criteria List with USlider and UInput -->
-            <div class="space-y-6">
+            <!-- Criteria List with Precision Input and USlider -->
+            <div class="space-y-5">
               <div
                 v-for="c in roundData.criteria"
                 :key="c.id"
-                class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-4"
+                class="p-4 bg-[#1c1c1c] border border-[#393939] space-y-3"
               >
                 <div class="flex items-center justify-between gap-4">
                   <div>
-                    <h3 class="font-bold text-white text-base sm:text-lg">{{ c.name }}</h3>
-                    <span class="text-xs text-slate-400">Ponderación: <strong class="text-slate-300">{{ c.weight }}%</strong></span>
+                    <h3 class="font-bold text-white text-sm sm:text-base">{{ c.name }}</h3>
+                    <span class="text-xs font-mono text-[#8d8d8d]">Ponderación: <strong class="text-[#c6c6c6]">{{ c.weight }}%</strong></span>
                   </div>
 
                   <div class="flex items-center gap-2 flex-shrink-0">
-                    <span class="text-xs text-slate-400 hidden sm:inline">Puntaje:</span>
+                    <span class="text-xs font-mono text-[#8d8d8d] hidden sm:inline">Calificación:</span>
                     <div class="w-24">
                       <UInput
                         v-model.number="localScores[selectedParticipantId][c.id]"
@@ -340,7 +316,7 @@ async function submitFinal() {
                   </div>
                 </div>
 
-                <!-- Nuxt UI v4 USlider -->
+                <!-- Nuxt UI v4 USlider with Carbon Blue styling -->
                 <div v-if="!roundData.isSubmitted" class="pt-1 px-1">
                   <USlider
                     v-model="localScores[selectedParticipantId][c.id]"
@@ -349,52 +325,51 @@ async function submitFinal() {
                     :step="0.5"
                     color="primary"
                   />
-                  <div class="flex justify-between text-[10px] font-mono text-slate-500 mt-1">
-                    <span>{{ roundData.edition.scaleMin }}</span>
-                    <span>{{ (roundData.edition.scaleMin + roundData.edition.scaleMax) / 2 }}</span>
-                    <span>{{ roundData.edition.scaleMax }}</span>
+                  <div class="flex justify-between text-[10px] font-mono text-[#8d8d8d] mt-1">
+                    <span>{{ roundData.edition.scaleMin }} pts</span>
+                    <span>{{ (roundData.edition.scaleMin + roundData.edition.scaleMax) / 2 }} pts</span>
+                    <span>{{ roundData.edition.scaleMax }} pts</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Action Bar at Bottom -->
-          <div class="pt-8 mt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="text-xs w-full sm:w-auto">
+          <!-- Bottom Action Bar -->
+          <div class="pt-6 mt-8 border-t border-[#393939] flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="text-xs font-mono w-full sm:w-auto">
               <template v-if="!roundData.isSubmitted">
-                <span v-if="!isAllComplete" class="text-amber-400 font-semibold flex items-center gap-1.5">
+                <span v-if="!isAllComplete" class="text-[#f1c21b] font-medium flex items-center gap-1.5">
                   <UIcon name="lucide:alert-circle" class="w-4 h-4 flex-shrink-0" />
-                  Faltan {{ totalCount - completedCount }} participante(s) por calificar para habilitar el envío definitivo.
+                  Faltan {{ totalCount - completedCount }} participante(s) para habilitar el envío definitivo.
                 </span>
-                <span v-else class="text-emerald-400 font-semibold flex items-center gap-1.5">
+                <span v-else class="text-[#42be65] font-medium flex items-center gap-1.5">
                   <UIcon name="lucide:check-circle" class="w-4 h-4 flex-shrink-0" />
-                  ¡Todos los participantes han sido calificados! Puedes realizar el envío definitivo.
+                  Todas las candidatas calificadas. Listo para enviar y sellar.
                 </span>
               </template>
             </div>
 
-            <div v-if="!roundData.isSubmitted" class="flex items-center gap-3 w-full sm:w-auto justify-end">
-              <UButton
-                variant="outline"
-                color="neutral"
-                icon="lucide:save"
-                size="md"
-                :loading="isSavingDraft"
+            <div v-if="!roundData.isSubmitted" class="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                type="button"
                 @click="saveDraft"
+                :disabled="isSavingDraft"
+                class="h-9 px-4 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
               >
-                Guardar Borrador
-              </UButton>
+                <UIcon name="lucide:save" class="w-3.5 h-3.5 text-[#78a9ff]" />
+                <span>Guardar Borrador</span>
+              </button>
 
-              <UButton
-                color="primary"
-                icon="lucide:send"
-                size="md"
-                :disabled="!isAllComplete"
+              <button
+                type="button"
                 @click="isConfirmModalOpen = true"
+                :disabled="!isAllComplete"
+                class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] active:bg-[#002d9c] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
               >
-                Enviar Definitivo
-              </UButton>
+                <UIcon name="lucide:send" class="w-3.5 h-3.5" />
+                <span>Enviar Definitivo</span>
+              </button>
             </div>
           </div>
         </div>
@@ -403,28 +378,41 @@ async function submitFinal() {
       <!-- Modal Confirmación Inmutabilidad -->
       <UModal v-model:open="isConfirmModalOpen" title="Confirmación de Envío Definitivo">
         <template #body>
-          <div class="p-6 space-y-4">
-            <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-2">
-              <UIcon name="lucide:shield-alert" class="w-8 h-8" />
+          <div class="p-6 bg-[#262626] space-y-4">
+            <div class="w-12 h-12 bg-[#1c1c1c] border border-[#f1c21b] text-[#f1c21b] flex items-center justify-center mx-auto mb-2">
+              <UIcon name="lucide:shield-alert" class="w-6 h-6" />
             </div>
 
             <div class="text-center">
-              <h3 class="text-lg font-black text-white">¿Deseas enviar tus calificaciones finales?</h3>
-              <p class="text-xs text-amber-400 mt-2 font-bold uppercase tracking-wider">
-                Regla de Inmutabilidad Estricta
+              <h3 class="text-base font-bold text-white uppercase tracking-wider font-mono">
+                ¿Deseas enviar tus calificaciones finales?
+              </h3>
+              <p class="text-xs text-[#f1c21b] mt-2 font-bold font-mono">
+                REGLA DE INMUTABILIDAD ESTRICTA
               </p>
-              <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Una vez confirmes este envío, tus calificaciones quedarán selladas en la base de datos y <strong>no podrás editarlas</strong> bajo ninguna circunstancia.
+              <p class="text-xs text-[#8d8d8d] mt-1 max-w-sm mx-auto">
+                Una vez confirmado el envío, tus votos quedarán sellados en la base de datos y no podrán modificarse.
               </p>
             </div>
 
-            <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-              <UButton variant="ghost" color="neutral" @click="isConfirmModalOpen = false">
+            <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+              <button
+                type="button"
+                @click="isConfirmModalOpen = false"
+                class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]"
+              >
                 Revisar de nuevo
-              </UButton>
-              <UButton color="primary" :loading="isSubmittingFinal" icon="lucide:check-circle" @click="submitFinal">
-                Sí, Enviar Definitivamente
-              </UButton>
+              </button>
+              <button
+                type="button"
+                @click="submitFinal"
+                :disabled="isSubmittingFinal"
+                class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+              >
+                <UIcon v-if="isSubmittingFinal" name="lucide:loader-2" class="w-3.5 h-3.5 animate-spin" />
+                <UIcon v-else name="lucide:check-circle" class="w-3.5 h-3.5" />
+                <span>Confirmar y Sellar Votación</span>
+              </button>
             </div>
           </div>
         </template>

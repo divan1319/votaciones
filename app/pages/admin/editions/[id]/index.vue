@@ -12,6 +12,10 @@ const editionId = route.params.id as string;
 
 const { data: edition, status, refresh } = await useFetch(`/api/admin/editions/${editionId}`);
 
+useHead({
+  title: () => edition.value ? `Edición ${edition.value.name} · ${edition.value.contest?.name}` : 'Gestión de Edición',
+});
+
 const activeTab = ref('rounds');
 const errorMsg = ref('');
 const successMsg = ref('');
@@ -23,7 +27,6 @@ const isAddParticipantModalOpen = ref(false);
 const isAddCriterionModalOpen = ref(false);
 const isAddJudgeModalOpen = ref(false);
 
-// Opciones de avance
 const advanceModeOptions = [
   { label: 'Top N (Puestos fijos)', value: 'top_n' },
   { label: 'Puntaje Mínimo requerido', value: 'min_score' },
@@ -74,10 +77,8 @@ const judgeState = reactive<JudgeSchema>({
   password: 'Juez' + Math.floor(1000 + Math.random() * 9000) + '!',
 });
 
-// Mensaje de credenciales de juez creado
 const createdJudgeInfo = ref<{ email: string; pass: string } | null>(null);
 
-// Criterios suma
 const totalCriteriaWeight = computed(() => {
   if (!edition.value?.criteria) return 0;
   return edition.value.criteria.reduce((acc: number, c: any) => acc + Number(c.weight), 0);
@@ -87,7 +88,6 @@ const isCriteriaWeightValid = computed(() => {
   return Math.abs(totalCriteriaWeight.value - 100) < 0.01;
 });
 
-// Acciones de ciclo de vida de la edición
 async function activateEdition() {
   loadingAction.value = true;
   errorMsg.value = '';
@@ -103,7 +103,7 @@ async function activateEdition() {
 }
 
 async function finishEdition() {
-  if (!confirm('¿Estás seguro de finalizar la edición? Se cerrará el concurso de forma oficial.')) return;
+  if (!confirm('¿Estás seguro de finalizar la edición? Se cerrará el certamen de forma oficial.')) return;
   loadingAction.value = true;
   errorMsg.value = '';
   try {
@@ -133,7 +133,6 @@ async function togglePublicResults() {
   }
 }
 
-// Abrir ronda
 async function openRound(roundId: string) {
   loadingAction.value = true;
   errorMsg.value = '';
@@ -148,7 +147,6 @@ async function openRound(roundId: string) {
   }
 }
 
-// Handlers de modales con Zod FormSubmitEvent
 async function handleCreateRound(event: FormSubmitEvent<RoundSchema>) {
   errorMsg.value = '';
   try {
@@ -264,299 +262,279 @@ async function unassignJudge(judgeId: string) {
 </script>
 
 <template>
-  <div>
+  <div class="space-y-6">
     <!-- SKELETON LOADING -->
     <div v-if="status === 'pending'" class="space-y-6">
-      <USkeleton class="h-4 w-60 rounded" />
-      <USkeleton class="h-40 w-full rounded-3xl" />
-      <div class="flex gap-4">
-        <USkeleton v-for="i in 5" :key="i" class="h-10 w-28 rounded-xl" />
+      <USkeleton class="h-4 w-60 rounded-none" />
+      <USkeleton class="h-32 w-full rounded-none" />
+      <div class="flex gap-2">
+        <USkeleton v-for="i in 5" :key="i" class="h-10 w-28 rounded-none" />
       </div>
-      <USkeleton class="h-72 w-full rounded-3xl" />
+      <USkeleton class="h-64 w-full rounded-none" />
     </div>
 
     <!-- MAIN HUB -->
     <div v-else-if="edition" class="space-y-6">
-      <!-- Breadcrumb -->
-      <div class="flex items-center gap-2 text-xs text-slate-400">
-        <NuxtLink to="/admin/contests" class="hover:text-emerald-400 transition">Concursos</NuxtLink>
+      <!-- Carbon Breadcrumb -->
+      <div class="flex items-center gap-2 text-xs font-mono text-[#8d8d8d]">
+        <NuxtLink to="/admin/contests" class="hover:underline text-[#c6c6c6]">Concursos</NuxtLink>
         <span>/</span>
-        <NuxtLink :to="`/admin/contests/${edition.contestId}`" class="hover:text-emerald-400 transition">{{ edition.contest?.name }}</NuxtLink>
+        <NuxtLink :to="`/admin/contests/${edition.contestId}`" class="hover:underline text-[#c6c6c6]">{{ edition.contest?.name }}</NuxtLink>
         <span>/</span>
-        <span class="text-slate-200 font-medium">Edición {{ edition.name }}</span>
+        <span class="text-white font-medium">Edición {{ edition.name }}</span>
       </div>
 
-      <!-- Edition Header Banner -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-xl backdrop-blur-md">
+      <!-- Edition Header Toolbar Banner -->
+      <div class="carbon-tile p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <div class="flex flex-wrap items-center gap-3 mb-2">
-            <h1 class="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">
+            <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">
               {{ edition.contest?.name }} &bull; Edición {{ edition.name }}
             </h1>
-            <UBadge
-              :color="edition.status === 'active' ? 'success' : edition.status === 'finished' ? 'neutral' : 'warning'"
-              variant="subtle"
-              size="md"
+            <span
+              class="carbon-tag"
+              :class="edition.status === 'active' ? 'carbon-tag-green' : edition.status === 'finished' ? 'carbon-tag-gray' : 'carbon-tag-warm'"
             >
-              {{ edition.status === 'active' ? 'Edición Activa' : edition.status === 'finished' ? 'Finalizada' : 'En Borrador' }}
-            </UBadge>
+              {{ edition.status === 'active' ? 'EDICIÓN ACTIVA' : edition.status === 'finished' ? 'FINALIZADA' : 'BORRADOR' }}
+            </span>
           </div>
 
-          <div class="flex flex-wrap gap-4 text-xs text-slate-400 mt-3">
-            <div class="flex items-center gap-1.5">
-              <UIcon name="lucide:calculator" class="w-4 h-4 text-emerald-400" />
-              <span>Puntaje: <strong class="text-slate-200 capitalize">{{ edition.scoringMethod === 'average' ? 'Promedio' : 'Suma' }}</strong></span>
+          <div class="flex flex-wrap gap-4 text-xs font-mono text-[#8d8d8d] mt-3">
+            <div>
+              <span>PUNTAJE: </span>
+              <strong class="text-white uppercase">{{ edition.scoringMethod === 'average' ? 'Promedio' : 'Suma' }}</strong>
             </div>
-            <div class="flex items-center gap-1.5">
-              <UIcon name="lucide:layers" class="w-4 h-4 text-emerald-400" />
-              <span>Acumulado: <strong class="text-slate-200">{{ edition.accumulateRounds ? 'Sí (Promedio)' : 'No (Desde cero)' }}</strong></span>
+            <span>&bull;</span>
+            <div>
+              <span>ACUMULADO: </span>
+              <strong class="text-white">{{ edition.accumulateRounds ? 'Sí (Promedio)' : 'No (Desde cero)' }}</strong>
             </div>
-            <div class="flex items-center gap-1.5">
-              <UIcon name="lucide:sliders" class="w-4 h-4 text-emerald-400" />
-              <span>Escala: <strong class="text-slate-200">[{{ edition.scaleMin }} a {{ edition.scaleMax }}]</strong></span>
+            <span>&bull;</span>
+            <div>
+              <span>ESCALA: </span>
+              <strong class="text-[#78a9ff]">[{{ edition.scaleMin }} &ndash; {{ edition.scaleMax }} pts]</strong>
             </div>
-            <div class="flex items-center gap-1.5">
-              <UIcon name="lucide:globe" class="w-4 h-4 text-emerald-400" />
-              <span>Resultados: <strong class="text-slate-200">{{ edition.resultsPublic ? 'Públicos' : 'Privados' }}</strong></span>
+            <span>&bull;</span>
+            <div>
+              <span>BOLETÍN: </span>
+              <strong class="text-white">{{ edition.resultsPublic ? 'PÚBLICO' : 'PRIVADO' }}</strong>
             </div>
           </div>
         </div>
 
-        <!-- Action Buttons -->
-        <div class="flex flex-wrap items-center gap-3">
-          <UButton
+        <!-- Life-Cycle Action Buttons in Carbon Style -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button
             v-if="edition.status === 'draft'"
-            color="primary"
-            icon="lucide:play"
-            size="md"
-            :loading="loadingAction"
             @click="activateEdition"
+            :disabled="loadingAction"
+            class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
           >
-            Activar Edición
-          </UButton>
+            <UIcon name="lucide:play" class="w-3.5 h-3.5" />
+            <span>Activar Edición</span>
+          </button>
 
-          <UButton
+          <button
             v-if="edition.status === 'active'"
-            color="error"
-            variant="outline"
-            icon="lucide:check-circle"
-            size="md"
-            :loading="loadingAction"
             @click="finishEdition"
+            :disabled="loadingAction"
+            class="h-9 px-4 bg-[#750e13] hover:bg-[#da1e28] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
           >
-            Finalizar Certamen
-          </UButton>
+            <UIcon name="lucide:check-circle" class="w-3.5 h-3.5" />
+            <span>Finalizar Certamen</span>
+          </button>
 
-          <UButton
-            variant="outline"
-            color="neutral"
-            :icon="edition.resultsPublic ? 'lucide:eye-off' : 'lucide:eye'"
-            size="md"
-            :loading="loadingAction"
+          <button
             @click="togglePublicResults"
+            :disabled="loadingAction"
+            class="h-9 px-4 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white text-xs font-semibold tracking-wider flex items-center gap-1.5 transition cursor-pointer"
           >
-            {{ edition.resultsPublic ? 'Ocultar al Público' : 'Hacer Público' }}
-          </UButton>
+            <UIcon :name="edition.resultsPublic ? 'lucide:eye-off' : 'lucide:eye'" class="w-3.5 h-3.5 text-[#78a9ff]" />
+            <span>{{ edition.resultsPublic ? 'Ocultar Boletín' : 'Hacer Público' }}</span>
+          </button>
 
           <NuxtLink
             v-if="edition.status === 'finished' && edition.resultsPublic"
             :to="`/results/${edition.contestId}/${edition.id}`"
             target="_blank"
           >
-            <UButton color="success" icon="lucide:external-link" size="md">
-              Ver Resultados Oficiales
-            </UButton>
+            <button class="h-9 px-4 bg-[#0e6027] hover:bg-[#24a148] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition">
+              <UIcon name="lucide:external-link" class="w-3.5 h-3.5" />
+              <span>Ver Boletín Público</span>
+            </button>
           </NuxtLink>
         </div>
       </div>
 
-      <!-- Alerts with UAlert -->
-      <div v-if="errorMsg">
-        <UAlert
-          color="error"
-          variant="subtle"
-          title="Error en la operación"
-          :description="errorMsg"
-          icon="lucide:alert-circle"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="errorMsg = ''"
-        />
+      <!-- Carbon Notifications (Alerts) -->
+      <div v-if="errorMsg" class="p-3.5 bg-[#750e13]/20 border-l-4 border-[#da1e28] text-xs text-[#ff8389] flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <UIcon name="lucide:alert-circle" class="w-4 h-4 flex-shrink-0" />
+          <span>{{ errorMsg }}</span>
+        </div>
+        <button @click="errorMsg = ''" class="text-[#ff8389] hover:text-white">✕</button>
       </div>
 
-      <div v-if="successMsg">
-        <UAlert
-          color="success"
-          variant="subtle"
-          title="Operación exitosa"
-          :description="successMsg"
-          icon="lucide:check-circle"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="successMsg = ''"
-        />
+      <div v-if="successMsg" class="p-3.5 bg-[#0e6027]/20 border-l-4 border-[#24a148] text-xs text-[#42be65] flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <UIcon name="lucide:check-circle" class="w-4 h-4 flex-shrink-0" />
+          <span>{{ successMsg }}</span>
+        </div>
+        <button @click="successMsg = ''" class="text-[#42be65] hover:text-white">✕</button>
       </div>
 
       <!-- Judge Credentials Alert -->
-      <div v-if="createdJudgeInfo">
-        <UAlert
-          color="warning"
-          variant="subtle"
-          title="¡Cuenta de Juez Registrada! Entrega estas credenciales:"
-          :description="`Usuario: ${createdJudgeInfo.email} | Contraseña temporal: ${createdJudgeInfo.pass}`"
-          icon="lucide:key"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="createdJudgeInfo = null"
-        />
+      <div v-if="createdJudgeInfo" class="p-4 bg-[#1c1c1c] border-l-4 border-[#f1c21b] text-xs text-[#c6c6c6] flex items-center justify-between">
+        <div class="space-y-1">
+          <strong class="text-[#f1c21b] block uppercase font-mono tracking-wider">
+            ¡Cuenta de Juez Creada! Entrega estas credenciales:
+          </strong>
+          <p class="font-mono text-xs">
+            Usuario: <span class="text-white font-bold">{{ createdJudgeInfo.email }}</span> |
+            Contraseña temporal: <span class="text-[#f1c21b] font-bold">{{ createdJudgeInfo.pass }}</span>
+          </p>
+        </div>
+        <button @click="createdJudgeInfo = null" class="text-[#c6c6c6] hover:text-white">✕</button>
       </div>
 
-      <!-- Criteria Balance Alert in Criteria View or Top -->
+      <!-- Criteria Balance Banner in Criteria View -->
       <div v-if="activeTab === 'criteria'">
-        <UAlert
+        <div
           v-if="!isCriteriaWeightValid"
-          color="warning"
-          variant="subtle"
-          title="Ponderación Desbalanceada"
-          :description="`La suma actual de los criterios es ${totalCriteriaWeight}%. Debe ser exactamente 100% para que las evaluaciones sean matemáticamente precisas.`"
-          icon="lucide:alert-triangle"
-        />
-        <UAlert
+          class="p-3.5 bg-[#f1c21b]/10 border-l-4 border-[#f1c21b] text-xs text-[#f1c21b] flex items-center gap-2 font-mono"
+        >
+          <UIcon name="lucide:alert-triangle" class="w-4 h-4 flex-shrink-0" />
+          <span>ADVERTENCIA: La suma actual es {{ totalCriteriaWeight }}%. Debe ser exactamente 100% para que las evaluaciones sean válidas.</span>
+        </div>
+        <div
           v-else
-          color="success"
-          variant="subtle"
-          title="Ponderación Perfecta"
-          description="La suma de ponderaciones está balanceada exactamente al 100%."
-          icon="lucide:check-circle"
-        />
+          class="p-3.5 bg-[#0e6027]/10 border-l-4 border-[#24a148] text-xs text-[#42be65] flex items-center gap-2 font-mono"
+        >
+          <UIcon name="lucide:check-circle" class="w-4 h-4 flex-shrink-0" />
+          <span>Ponderación balanceada al 100%. Regla matemática de criterios cumplida.</span>
+        </div>
       </div>
 
-      <!-- Tabs Navigation -->
-      <div class="flex border-b border-slate-800 gap-2 overflow-x-auto pb-px">
+      <!-- Carbon Flat Tabs Bar -->
+      <div class="flex border-b border-[#393939] overflow-x-auto bg-[#161616]">
         <button
           @click="activeTab = 'rounds'"
-          class="px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition whitespace-nowrap"
-          :class="activeTab === 'rounds' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          class="carbon-tab"
+          :class="activeTab === 'rounds' ? 'carbon-tab-active' : ''"
         >
           <UIcon name="lucide:layers" class="w-4 h-4" />
-          Rondas ({{ edition.rounds?.length || 0 }})
+          <span>Rondas ({{ edition.rounds?.length || 0 }})</span>
         </button>
 
         <button
           @click="activeTab = 'participants'"
-          class="px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition whitespace-nowrap"
-          :class="activeTab === 'participants' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          class="carbon-tab"
+          :class="activeTab === 'participants' ? 'carbon-tab-active' : ''"
         >
           <UIcon name="lucide:users" class="w-4 h-4" />
-          Participantes ({{ edition.participants?.length || 0 }})
+          <span>Participantes ({{ edition.participants?.length || 0 }})</span>
         </button>
 
         <button
           @click="activeTab = 'criteria'"
-          class="px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition whitespace-nowrap"
-          :class="activeTab === 'criteria' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          class="carbon-tab"
+          :class="activeTab === 'criteria' ? 'carbon-tab-active' : ''"
         >
           <UIcon name="lucide:list-checks" class="w-4 h-4" />
-          Criterios ({{ edition.criteria?.length || 0 }})
-          <UBadge :color="isCriteriaWeightValid ? 'success' : 'warning'" size="xs" variant="subtle">
+          <span>Criterios ({{ edition.criteria?.length || 0 }})</span>
+          <span
+            class="carbon-tag ml-1"
+            :class="isCriteriaWeightValid ? 'carbon-tag-green' : 'carbon-tag-warm'"
+          >
             {{ totalCriteriaWeight }}%
-          </UBadge>
+          </span>
         </button>
 
         <button
           @click="activeTab = 'judges'"
-          class="px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition whitespace-nowrap"
-          :class="activeTab === 'judges' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          class="carbon-tab"
+          :class="activeTab === 'judges' ? 'carbon-tab-active' : ''"
         >
           <UIcon name="lucide:user-check" class="w-4 h-4" />
-          Jueces ({{ edition.judges?.length || 0 }})
+          <span>Jueces ({{ edition.judges?.length || 0 }})</span>
         </button>
 
         <button
           @click="activeTab = 'awards'"
-          class="px-4 py-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition whitespace-nowrap"
-          :class="activeTab === 'awards' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'"
+          class="carbon-tab"
+          :class="activeTab === 'awards' ? 'carbon-tab-active' : ''"
         >
           <UIcon name="lucide:award" class="w-4 h-4" />
-          Premios Especiales ({{ edition.awards?.length || 0 }})
+          <span>Premios Especiales ({{ edition.awards?.length || 0 }})</span>
         </button>
       </div>
 
       <!-- TAB 1: RONDAS -->
-      <div v-if="activeTab === 'rounds'" class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div v-if="activeTab === 'rounds'" class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
           <div>
-            <h2 class="text-lg font-bold text-white">Rondas de la Edición</h2>
-            <p class="text-xs text-slate-400">Las rondas se ejecutan secuencialmente según su posición</p>
+            <h2 class="text-base font-bold text-white uppercase tracking-wider font-mono">Fases Eliminatorias</h2>
+            <p class="text-xs text-[#8d8d8d]">Ejecución secuencial según posición designada</p>
           </div>
-          <UButton color="primary" size="sm" icon="lucide:plus" @click="isAddRoundModalOpen = true">
-            Añadir Ronda
-          </UButton>
+          <button
+            @click="isAddRoundModalOpen = true"
+            class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition self-start sm:self-auto cursor-pointer"
+          >
+            <UIcon name="lucide:plus" class="w-3.5 h-3.5" />
+            <span>Añadir Ronda</span>
+          </button>
         </div>
 
-        <!-- Empty State Rondas -->
-        <div
-          v-if="!edition.rounds || edition.rounds.length === 0"
-          class="text-center py-12 px-4 bg-slate-900/40 border border-slate-800 rounded-3xl"
-        >
-          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3">
-            <UIcon name="lucide:layers" class="w-7 h-7" />
-          </div>
-          <h3 class="text-base font-bold text-white">No hay rondas configuradas</h3>
-          <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-            Añade al menos una ronda (ej. "Final" o "Semifinal") para poder recibir calificaciones de los jueces.
-          </p>
-          <UButton color="primary" size="sm" icon="lucide:plus" @click="isAddRoundModalOpen = true">
-            Añadir Primera Ronda
-          </UButton>
+        <div v-if="!edition.rounds || edition.rounds.length === 0" class="carbon-tile p-8 text-center text-xs text-[#8d8d8d] font-mono">
+          No hay rondas configuradas en esta edición. Añade la primera fase.
         </div>
 
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-2">
           <div
             v-for="r in edition.rounds"
             :key="r.id"
-            class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-slate-700 transition"
+            class="carbon-tile p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"
           >
-            <div class="flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-lg text-emerald-400 flex-shrink-0">
+            <div class="flex items-start gap-3">
+              <div class="w-8 h-8 bg-[#161616] border border-[#525252] flex items-center justify-center font-mono font-bold text-sm text-[#78a9ff] flex-shrink-0">
                 {{ r.position }}
               </div>
               <div>
-                <div class="flex flex-wrap items-center gap-2.5">
-                  <h3 class="text-xl font-bold text-white">{{ r.name }}</h3>
-                  <UBadge
-                    :color="r.status === 'open' ? 'success' : r.status === 'closed' ? 'neutral' : 'warning'"
-                    variant="subtle"
-                    size="sm"
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base font-bold text-white">{{ r.name }}</h3>
+                  <span
+                    class="carbon-tag"
+                    :class="r.status === 'open' ? 'carbon-tag-green' : r.status === 'closed' ? 'carbon-tag-gray' : 'carbon-tag-warm'"
                   >
-                    {{ r.status === 'open' ? 'Abierta para Votar' : r.status === 'closed' ? 'Cerrada' : 'Pendiente' }}
-                  </UBadge>
+                    {{ r.status === 'open' ? 'ABIERTA' : r.status === 'closed' ? 'CERRADA' : 'PENDIENTE' }}
+                  </span>
                 </div>
-                <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-3">
-                  <span>Modo Avance: <strong class="text-slate-200">{{ r.advanceMode === 'top_n' ? `Top ${r.advanceValue}` : `Mínimo ${r.advanceValue} pts` }}</strong></span>
-                  <span>Participantes: <strong class="text-slate-200">{{ r.roundParticipants?.length || 0 }}</strong></span>
+                <div class="text-xs font-mono text-[#8d8d8d] mt-1 flex flex-wrap gap-4">
+                  <span>Modo Avance: <strong class="text-white">{{ r.advanceMode === 'top_n' ? `Top ${r.advanceValue}` : `Mínimo ${r.advanceValue} pts` }}</strong></span>
+                  <span>Participantes: <strong class="text-white">{{ r.roundParticipants?.length || 0 }}</strong></span>
                 </div>
               </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-3">
-              <UButton
+            <div class="flex items-center gap-2">
+              <button
                 v-if="r.status === 'pending'"
-                color="primary"
-                size="sm"
-                icon="lucide:play"
-                :loading="loadingAction"
                 @click="openRound(r.id)"
+                :disabled="loadingAction"
+                class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer"
               >
-                Abrir Votación
-              </UButton>
+                <UIcon name="lucide:play" class="w-3 h-3" />
+                <span>Abrir Votación</span>
+              </button>
 
               <NuxtLink :to="`/admin/rounds/${r.id}/monitor`">
-                <UButton
-                  :color="r.status === 'open' ? 'success' : 'neutral'"
-                  :variant="r.status === 'open' ? 'solid' : 'outline'"
-                  size="sm"
-                  icon="lucide:activity"
+                <button
+                  class="h-8 px-3 text-xs font-semibold flex items-center gap-1.5 transition border cursor-pointer"
+                  :class="r.status === 'open' ? 'bg-[#0e6027] hover:bg-[#24a148] text-white border-transparent' : 'bg-[#262626] hover:bg-[#393939] text-[#c6c6c6] border-[#525252]'"
                 >
-                  {{ r.status === 'open' ? 'Monitor en Vivo' : 'Ver Resultados' }}
-                </UButton>
+                  <UIcon name="lucide:activity" class="w-3.5 h-3.5" />
+                  <span>{{ r.status === 'open' ? 'Monitor en Vivo' : 'Ver Resultados' }}</span>
+                </button>
               </NuxtLink>
             </div>
           </div>
@@ -564,49 +542,47 @@ async function unassignJudge(judgeId: string) {
       </div>
 
       <!-- TAB 2: PARTICIPANTES -->
-      <div v-if="activeTab === 'participants'" class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div v-if="activeTab === 'participants'" class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
           <div>
-            <h2 class="text-lg font-bold text-white">Participantes Registrados</h2>
-            <p class="text-xs text-slate-400">Candidatas o participantes asignados a esta edición</p>
+            <h2 class="text-base font-bold text-white uppercase tracking-wider font-mono">Participantes Registradas</h2>
+            <p class="text-xs text-[#8d8d8d]">Nómina oficial de aspirantes en la edición</p>
           </div>
-          <UButton color="primary" size="sm" icon="lucide:plus" @click="isAddParticipantModalOpen = true">
-            Registrar Participante
-          </UButton>
+          <button
+            @click="isAddParticipantModalOpen = true"
+            class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition self-start sm:self-auto cursor-pointer"
+          >
+            <UIcon name="lucide:plus" class="w-3.5 h-3.5" />
+            <span>Registrar Participante</span>
+          </button>
         </div>
 
-        <!-- Empty State Participantes -->
-        <div
-          v-if="!edition.participants || edition.participants.length === 0"
-          class="text-center py-12 px-4 bg-slate-900/40 border border-slate-800 rounded-3xl"
-        >
-          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3">
-            <UIcon name="lucide:users" class="w-7 h-7" />
-          </div>
-          <h3 class="text-base font-bold text-white">No hay participantes registrados</h3>
-          <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-            Registra los participantes con su código y nombre completo para habilitar la calificación.
-          </p>
-          <UButton color="primary" size="sm" icon="lucide:plus" @click="isAddParticipantModalOpen = true">
-            Registrar Primer Participante
-          </UButton>
-        </div>
-
-        <div v-else class="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
-          <table class="w-full text-left text-sm min-w-[500px]">
-            <thead class="bg-slate-800/60 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+        <div class="carbon-tile overflow-x-auto">
+          <table class="w-full text-left text-xs min-w-[500px]">
+            <thead class="carbon-table-header">
               <tr>
-                <th class="px-6 py-4">Código</th>
-                <th class="px-6 py-4">Nombre Completo</th>
-                <th class="px-6 py-4 text-right">Acción</th>
+                <th class="px-5 py-3">Código</th>
+                <th class="px-5 py-3">Nombre Completo</th>
+                <th class="px-5 py-3 text-right">Acción</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800">
-              <tr v-for="p in edition.participants" :key="p.id" class="hover:bg-slate-800/30 transition">
-                <td class="px-6 py-4 font-mono font-bold text-emerald-400">{{ p.code }}</td>
-                <td class="px-6 py-4 font-semibold text-white">{{ p.name }}</td>
-                <td class="px-6 py-4 text-right">
-                  <UButton variant="ghost" color="error" size="xs" icon="lucide:trash-2" @click="deleteParticipant(p.id)" />
+            <tbody class="divide-y divide-[#333333]">
+              <tr v-for="p in edition.participants" :key="p.id" class="hover:bg-[#2e2e2e] transition">
+                <td class="px-5 py-3 font-mono font-bold text-[#78a9ff]">#{{ p.code }}</td>
+                <td class="px-5 py-3 font-medium text-white">{{ p.name }}</td>
+                <td class="px-5 py-3 text-right">
+                  <button
+                    @click="deleteParticipant(p.id)"
+                    class="p-1 text-[#ff8389] hover:bg-[#750e13]/30 transition"
+                    title="Eliminar participante"
+                  >
+                    <UIcon name="lucide:trash-2" class="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!edition.participants || edition.participants.length === 0">
+                <td colspan="3" class="px-5 py-8 text-center text-[#8d8d8d] font-mono">
+                  No hay participantes registradas en esta edición.
                 </td>
               </tr>
             </tbody>
@@ -615,49 +591,47 @@ async function unassignJudge(judgeId: string) {
       </div>
 
       <!-- TAB 3: CRITERIOS -->
-      <div v-if="activeTab === 'criteria'" class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div v-if="activeTab === 'criteria'" class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
           <div>
-            <h2 class="text-lg font-bold text-white">Criterios de Evaluación</h2>
-            <p class="text-xs text-slate-400">Aspectos a evaluar con sus respectivas ponderaciones porcentuales</p>
+            <h2 class="text-base font-bold text-white uppercase tracking-wider font-mono">Criterios de Evaluación</h2>
+            <p class="text-xs text-[#8d8d8d]">Ponderaciones que componen el 100% de la calificación</p>
           </div>
-          <UButton color="primary" size="sm" icon="lucide:plus" @click="isAddCriterionModalOpen = true">
-            Añadir Criterio
-          </UButton>
+          <button
+            @click="isAddCriterionModalOpen = true"
+            class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition self-start sm:self-auto cursor-pointer"
+          >
+            <UIcon name="lucide:plus" class="w-3.5 h-3.5" />
+            <span>Añadir Criterio</span>
+          </button>
         </div>
 
-        <!-- Empty State Criterios -->
-        <div
-          v-if="!edition.criteria || edition.criteria.length === 0"
-          class="text-center py-12 px-4 bg-slate-900/40 border border-slate-800 rounded-3xl"
-        >
-          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3">
-            <UIcon name="lucide:list-checks" class="w-7 h-7" />
-          </div>
-          <h3 class="text-base font-bold text-white">No hay criterios de evaluación</h3>
-          <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-            Añade criterios como "Pasarela", "Belleza Integral" o "Entrevista" cuya suma dé 100%.
-          </p>
-          <UButton color="primary" size="sm" icon="lucide:plus" @click="isAddCriterionModalOpen = true">
-            Añadir Primer Criterio
-          </UButton>
-        </div>
-
-        <div v-else class="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
-          <table class="w-full text-left text-sm min-w-[500px]">
-            <thead class="bg-slate-800/60 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+        <div class="carbon-tile overflow-x-auto">
+          <table class="w-full text-left text-xs min-w-[500px]">
+            <thead class="carbon-table-header">
               <tr>
-                <th class="px-6 py-4">Nombre del Criterio</th>
-                <th class="px-6 py-4">Ponderación (%)</th>
-                <th class="px-6 py-4 text-right">Acción</th>
+                <th class="px-5 py-3">Criterio</th>
+                <th class="px-5 py-3">Ponderación (%)</th>
+                <th class="px-5 py-3 text-right">Acción</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800">
-              <tr v-for="c in edition.criteria" :key="c.id" class="hover:bg-slate-800/30 transition">
-                <td class="px-6 py-4 font-semibold text-white">{{ c.name }}</td>
-                <td class="px-6 py-4 font-mono font-bold text-emerald-400">{{ Number(c.weight) }}%</td>
-                <td class="px-6 py-4 text-right">
-                  <UButton variant="ghost" color="error" size="xs" icon="lucide:trash-2" @click="deleteCriterion(c.id)" />
+            <tbody class="divide-y divide-[#333333]">
+              <tr v-for="c in edition.criteria" :key="c.id" class="hover:bg-[#2e2e2e] transition">
+                <td class="px-5 py-3 font-medium text-white">{{ c.name }}</td>
+                <td class="px-5 py-3 font-mono font-bold text-[#78a9ff]">{{ Number(c.weight) }}%</td>
+                <td class="px-5 py-3 text-right">
+                  <button
+                    @click="deleteCriterion(c.id)"
+                    class="p-1 text-[#ff8389] hover:bg-[#750e13]/30 transition"
+                    title="Eliminar criterio"
+                  >
+                    <UIcon name="lucide:trash-2" class="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!edition.criteria || edition.criteria.length === 0">
+                <td colspan="3" class="px-5 py-8 text-center text-[#8d8d8d] font-mono">
+                  No hay criterios registrados. La suma debe dar 100%.
                 </td>
               </tr>
             </tbody>
@@ -666,49 +640,47 @@ async function unassignJudge(judgeId: string) {
       </div>
 
       <!-- TAB 4: JUECES -->
-      <div v-if="activeTab === 'judges'" class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div v-if="activeTab === 'judges'" class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
           <div>
-            <h2 class="text-lg font-bold text-white">Jueces Calificadores</h2>
-            <p class="text-xs text-slate-400">Jueces autorizados para acceder y calificar esta edición</p>
+            <h2 class="text-base font-bold text-white uppercase tracking-wider font-mono">Jueces Calificadores</h2>
+            <p class="text-xs text-[#8d8d8d]">Cuentas autorizadas para emitir calificaciones</p>
           </div>
-          <UButton color="primary" size="sm" icon="lucide:user-plus" @click="isAddJudgeModalOpen = true">
-            Registrar / Asignar Juez
-          </UButton>
+          <button
+            @click="isAddJudgeModalOpen = true"
+            class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition self-start sm:self-auto cursor-pointer"
+          >
+            <UIcon name="lucide:user-plus" class="w-3.5 h-3.5" />
+            <span>Registrar Juez</span>
+          </button>
         </div>
 
-        <!-- Empty State Jueces -->
-        <div
-          v-if="!edition.judges || edition.judges.length === 0"
-          class="text-center py-12 px-4 bg-slate-900/40 border border-slate-800 rounded-3xl"
-        >
-          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3">
-            <UIcon name="lucide:user-check" class="w-7 h-7" />
-          </div>
-          <h3 class="text-base font-bold text-white">No hay jueces asignados</h3>
-          <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-            Registra jueces calificadores para que puedan acceder a la cabina con sus credenciales seguras.
-          </p>
-          <UButton color="primary" size="sm" icon="lucide:user-plus" @click="isAddJudgeModalOpen = true">
-            Registrar Primer Juez
-          </UButton>
-        </div>
-
-        <div v-else class="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
-          <table class="w-full text-left text-sm min-w-[500px]">
-            <thead class="bg-slate-800/60 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+        <div class="carbon-tile overflow-x-auto">
+          <table class="w-full text-left text-xs min-w-[500px]">
+            <thead class="carbon-table-header">
               <tr>
-                <th class="px-6 py-4">Nombre</th>
-                <th class="px-6 py-4">Correo Electrónico</th>
-                <th class="px-6 py-4 text-right">Acción</th>
+                <th class="px-5 py-3">Nombre</th>
+                <th class="px-5 py-3">Usuario / Correo Electrónico</th>
+                <th class="px-5 py-3 text-right">Acción</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-800">
-              <tr v-for="j in edition.judges" :key="j.id" class="hover:bg-slate-800/30 transition">
-                <td class="px-6 py-4 font-semibold text-white">{{ j.name }}</td>
-                <td class="px-6 py-4 font-mono text-slate-300 text-xs">{{ j.email }}</td>
-                <td class="px-6 py-4 text-right">
-                  <UButton variant="ghost" color="error" size="xs" icon="lucide:user-x" @click="unassignJudge(j.id)" />
+            <tbody class="divide-y divide-[#333333]">
+              <tr v-for="j in edition.judges" :key="j.id" class="hover:bg-[#2e2e2e] transition">
+                <td class="px-5 py-3 font-medium text-white">{{ j.name }}</td>
+                <td class="px-5 py-3 font-mono text-[#c6c6c6]">{{ j.email }}</td>
+                <td class="px-5 py-3 text-right">
+                  <button
+                    @click="unassignJudge(j.id)"
+                    class="p-1 text-[#ff8389] hover:bg-[#750e13]/30 transition"
+                    title="Desvincular juez"
+                  >
+                    <UIcon name="lucide:user-x" class="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!edition.judges || edition.judges.length === 0">
+                <td colspan="3" class="px-5 py-8 text-center text-[#8d8d8d] font-mono">
+                  No hay jueces vinculados a esta edición.
                 </td>
               </tr>
             </tbody>
@@ -717,64 +689,53 @@ async function unassignJudge(judgeId: string) {
       </div>
 
       <!-- TAB 5: PREMIOS ESPECIALES -->
-      <div v-if="activeTab === 'awards'" class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div v-if="activeTab === 'awards'" class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
           <div>
-            <h2 class="text-lg font-bold text-white">Premios Especiales</h2>
-            <p class="text-xs text-slate-400">Premios independientes de la ganadora principal del certamen</p>
+            <h2 class="text-base font-bold text-white uppercase tracking-wider font-mono">Premios Especiales</h2>
+            <p class="text-xs text-[#8d8d8d]">Galardones independientes de la ganadora del certamen</p>
           </div>
           <NuxtLink :to="`/admin/editions/${edition.id}/awards`">
-            <UButton color="primary" size="sm" icon="lucide:external-link">
-              Gestionar Premios y Métricas
-            </UButton>
+            <button class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition">
+              <UIcon name="lucide:external-link" class="w-3.5 h-3.5" />
+              <span>Matriz de Premios & Métricas</span>
+            </button>
           </NuxtLink>
         </div>
 
-        <div
-          v-if="!edition.awards || edition.awards.length === 0"
-          class="text-center py-12 px-4 bg-slate-900/40 border border-slate-800 rounded-3xl"
-        >
-          <div class="w-14 h-14 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center mx-auto mb-3">
-            <UIcon name="lucide:award" class="w-7 h-7" />
-          </div>
-          <h3 class="text-base font-bold text-white">No hay premios especiales configurados</h3>
-          <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
-            Crea premios especiales como "Miss Fotogénica", "Mejor Rostro" o premios por métricas de redes sociales.
-          </p>
-          <NuxtLink :to="`/admin/editions/${edition.id}/awards`">
-            <UButton color="primary" size="sm" icon="lucide:plus">
-              Crear Primer Premio Especial
-            </UButton>
-          </NuxtLink>
+        <div v-if="!edition.awards || edition.awards.length === 0" class="carbon-tile p-8 text-center text-xs text-[#8d8d8d] font-mono">
+          No hay premios especiales configurados.
         </div>
 
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div v-for="aw in edition.awards" :key="aw.id" class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-for="aw in edition.awards" :key="aw.id" class="carbon-tile p-5 flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between mb-2">
-                <h3 class="text-lg font-bold text-white">{{ aw.name }}</h3>
-                <UBadge color="neutral" size="xs" variant="subtle" class="capitalize">{{ aw.type }}</UBadge>
+                <h3 class="text-sm font-bold text-white">{{ aw.name }}</h3>
+                <span class="carbon-tag carbon-tag-purple uppercase">{{ aw.type }}</span>
               </div>
-              <p class="text-xs text-slate-400 mb-4">
-                Tipo: {{ aw.type === 'criterion' ? 'Promedio de Criterios Vinculados' : aw.type === 'metric' ? `Métrica Manual (${aw.metricLabel || 'Puntos'})` : 'Elección Discrecional' }}
+              <p class="text-xs text-[#8d8d8d] font-mono mb-4">
+                {{ aw.type === 'criterion' ? 'Promedio ponderado de criterios' : aw.type === 'metric' ? `Métrica manual (${aw.metricLabel || 'Puntos'})` : 'Elección discrecional' }}
               </p>
             </div>
             <NuxtLink :to="`/admin/editions/${edition.id}/awards`">
-              <UButton variant="ghost" color="primary" size="xs" trailing-icon="lucide:chevron-right">
-                Ver Resultados y Ganadores
-              </UButton>
+              <button class="h-7 px-2.5 text-xs text-[#78a9ff] hover:text-white hover:bg-[#393939] border border-[#525252] flex items-center gap-1">
+                <span>Ver Resultados</span>
+                <UIcon name="lucide:chevron-right" class="w-3 h-3" />
+              </button>
             </NuxtLink>
           </div>
         </div>
       </div>
 
-      <!-- MODAL AÑADIR RONDA (UForm + Zod) -->
+      <!-- MODALES CARBON CON ZOD -->
+      <!-- Modal Ronda -->
       <UModal v-model:open="isAddRoundModalOpen" title="Añadir Nueva Ronda">
         <template #body>
-          <div class="p-6">
+          <div class="p-6 bg-[#262626]">
             <UForm :schema="roundSchema" :state="roundState" class="space-y-4" @submit="handleCreateRound">
               <UFormField label="Nombre de la Ronda" name="name" description="Ej. Semifinal, Traje de Noche, Gran Final" required>
-                <UInput v-model="roundState.name" placeholder="Nombre de la ronda" class="w-full" size="md" icon="lucide:layers" />
+                <UInput v-model="roundState.name" placeholder="Nombre de la ronda" class="w-full" size="md" />
               </UFormField>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -787,79 +748,99 @@ async function unassignJudge(judgeId: string) {
                 </UFormField>
               </div>
 
-              <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-                <UButton variant="ghost" color="neutral" @click="isAddRoundModalOpen = false">Cancelar</UButton>
-                <UButton type="submit" color="primary" icon="lucide:check">Crear Ronda</UButton>
+              <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+                <button type="button" @click="isAddRoundModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
+                  Cancelar
+                </button>
+                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <UIcon name="lucide:check" class="w-3.5 h-3.5" />
+                  <span>Crear Ronda</span>
+                </button>
               </div>
             </UForm>
           </div>
         </template>
       </UModal>
 
-      <!-- MODAL REGISTRAR PARTICIPANTE (UForm + Zod) -->
+      <!-- Modal Participante -->
       <UModal v-model:open="isAddParticipantModalOpen" title="Registrar Participante">
         <template #body>
-          <div class="p-6">
+          <div class="p-6 bg-[#262626]">
             <UForm :schema="participantSchema" :state="participantState" class="space-y-4" @submit="handleCreateParticipant">
-              <UFormField label="Código o Número" name="code" description="Identificador único en el certamen (ej. 01, C-05)" required>
-                <UInput v-model="participantState.code" placeholder="01" class="w-full" size="md" icon="lucide:hash" />
+              <UFormField label="Código o Número" name="code" description="Identificador único (ej. 01, C-05)" required>
+                <UInput v-model="participantState.code" placeholder="01" class="w-full" size="md" />
               </UFormField>
 
               <UFormField label="Nombre Completo" name="name" description="Nombre y Apellidos del concursante" required>
-                <UInput v-model="participantState.name" placeholder="Nombre y Apellidos" class="w-full" size="md" icon="lucide:user" />
+                <UInput v-model="participantState.name" placeholder="Nombre y Apellidos" class="w-full" size="md" />
               </UFormField>
 
-              <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-                <UButton variant="ghost" color="neutral" @click="isAddParticipantModalOpen = false">Cancelar</UButton>
-                <UButton type="submit" color="primary" icon="lucide:check">Registrar Participante</UButton>
+              <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+                <button type="button" @click="isAddParticipantModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
+                  Cancelar
+                </button>
+                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <UIcon name="lucide:check" class="w-3.5 h-3.5" />
+                  <span>Registrar Participante</span>
+                </button>
               </div>
             </UForm>
           </div>
         </template>
       </UModal>
 
-      <!-- MODAL AÑADIR CRITERIO (UForm + Zod) -->
+      <!-- Modal Criterio -->
       <UModal v-model:open="isAddCriterionModalOpen" title="Añadir Criterio de Evaluación">
         <template #body>
-          <div class="p-6">
+          <div class="p-6 bg-[#262626]">
             <UForm :schema="criterionSchema" :state="criterionState" class="space-y-4" @submit="handleCreateCriterion">
               <UFormField label="Nombre del Criterio" name="name" description="Ej. Pasarela, Belleza Integral, Entrevista" required>
-                <UInput v-model="criterionState.name" placeholder="Nombre del criterio" class="w-full" size="md" icon="lucide:list-checks" />
+                <UInput v-model="criterionState.name" placeholder="Nombre del criterio" class="w-full" size="md" />
               </UFormField>
 
               <UFormField label="Ponderación (%)" name="weight" description="Porcentaje sobre la calificación final (1 a 100%)" required>
-                <UInput v-model.number="criterionState.weight" type="number" min="1" max="100" class="w-full" size="md" icon="lucide:percent" />
+                <UInput v-model.number="criterionState.weight" type="number" min="1" max="100" class="w-full" size="md" />
               </UFormField>
 
-              <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-                <UButton variant="ghost" color="neutral" @click="isAddCriterionModalOpen = false">Cancelar</UButton>
-                <UButton type="submit" color="primary" icon="lucide:check">Añadir Criterio</UButton>
+              <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+                <button type="button" @click="isAddCriterionModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
+                  Cancelar
+                </button>
+                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <UIcon name="lucide:check" class="w-3.5 h-3.5" />
+                  <span>Añadir Criterio</span>
+                </button>
               </div>
             </UForm>
           </div>
         </template>
       </UModal>
 
-      <!-- MODAL CREAR / ASIGNAR JUEZ (UForm + Zod) -->
+      <!-- Modal Juez -->
       <UModal v-model:open="isAddJudgeModalOpen" title="Registrar o Asignar Juez">
         <template #body>
-          <div class="p-6">
+          <div class="p-6 bg-[#262626]">
             <UForm :schema="judgeSchema" :state="judgeState" class="space-y-4" @submit="handleCreateJudge">
               <UFormField label="Nombre del Juez" name="name" description="Nombre y título profesional" required>
-                <UInput v-model="judgeState.name" placeholder="Lic. Carlos Méndez" class="w-full" size="md" icon="lucide:user" />
+                <UInput v-model="judgeState.name" placeholder="Lic. Carlos Méndez" class="w-full" size="md" />
               </UFormField>
 
-              <UFormField label="Correo Electrónico" name="email" description="Será su usuario de acceso al sistema" required>
-                <UInput v-model="judgeState.email" type="email" placeholder="juez1@concurso.com" class="w-full" size="md" icon="lucide:mail" />
+              <UFormField label="Correo Electrónico" name="email" description="Usuario de acceso al sistema" required>
+                <UInput v-model="judgeState.email" type="email" placeholder="juez1@concurso.com" class="w-full" size="md" />
               </UFormField>
 
-              <UFormField label="Contraseña Temporal Generada" name="password" description="El juez podrá iniciar sesión con esta contraseña" required>
-                <UInput v-model="judgeState.password" class="w-full font-mono" size="md" icon="lucide:key" />
+              <UFormField label="Contraseña Temporal Generada" name="password" description="Contraseña asignada para la cabina" required>
+                <UInput v-model="judgeState.password" class="w-full font-mono" size="md" />
               </UFormField>
 
-              <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-                <UButton variant="ghost" color="neutral" @click="isAddJudgeModalOpen = false">Cancelar</UButton>
-                <UButton type="submit" color="primary" icon="lucide:check">Registrar y Asignar</UButton>
+              <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+                <button type="button" @click="isAddJudgeModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
+                  Cancelar
+                </button>
+                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <UIcon name="lucide:check" class="w-3.5 h-3.5" />
+                  <span>Registrar Juez</span>
+                </button>
               </div>
             </UForm>
           </div>

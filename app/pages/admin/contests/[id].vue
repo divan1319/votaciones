@@ -12,11 +12,14 @@ const contestId = route.params.id as string;
 
 const { data: contest, status, refresh } = await useFetch(`/api/admin/contests/${contestId}`);
 
+useHead({
+  title: () => contest.value ? `${contest.value.name} — Ediciones` : 'Detalle de Concurso',
+});
+
 const isModalOpen = ref(false);
 const isSubmitting = ref(false);
 const errorMsg = ref('');
 
-// Opciones de selección para componentes USelect
 const scoringMethodOptions = [
   { label: 'Promedio entre Jueces', value: 'average' },
   { label: 'Suma entre Jueces', value: 'sum' },
@@ -42,7 +45,6 @@ const advanceModeOptions = [
   { label: 'Puntaje Mínimo requerido', value: 'min_score' },
 ];
 
-// Zod schema para la nueva edición
 const editionSchema = z.object({
   name: z.string().min(1, 'El nombre o año de la edición es requerido'),
   scoringMethod: z.enum(['average', 'sum']),
@@ -118,156 +120,148 @@ async function handleCreateEdition(event: FormSubmitEvent<EditionSchema>) {
 </script>
 
 <template>
-  <div>
+  <div class="space-y-6">
     <!-- SKELETON LOADING -->
     <div v-if="status === 'pending'" class="space-y-6">
-      <USkeleton class="h-4 w-48 rounded" />
+      <USkeleton class="h-4 w-48 rounded-none" />
       <div class="flex justify-between items-center">
         <div class="space-y-2">
-          <USkeleton class="h-8 w-64 rounded-xl" />
-          <USkeleton class="h-4 w-96 rounded" />
+          <USkeleton class="h-8 w-64 rounded-none" />
+          <USkeleton class="h-4 w-96 rounded-none" />
         </div>
-        <USkeleton class="h-10 w-36 rounded-xl" />
+        <USkeleton class="h-10 w-36 rounded-none" />
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-        <USkeleton v-for="i in 3" :key="i" class="h-64 rounded-3xl" />
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+        <USkeleton v-for="i in 3" :key="i" class="h-64 rounded-none" />
       </div>
     </div>
 
     <!-- MAIN CONTENT -->
-    <div v-else-if="contest">
-      <!-- Breadcrumb -->
-      <div class="mb-6 flex items-center gap-2 text-xs text-slate-400">
-        <NuxtLink to="/admin/contests" class="hover:text-emerald-400 transition flex items-center gap-1">
-          <UIcon name="lucide:arrow-left" class="w-3 h-3" />
-          Concursos
+    <div v-else-if="contest" class="space-y-6">
+      <!-- Carbon Breadcrumb -->
+      <div class="flex items-center gap-2 text-xs font-mono text-[#8d8d8d]">
+        <NuxtLink to="/admin/contests" class="hover:underline text-[#c6c6c6] flex items-center gap-1">
+          <UIcon name="lucide:arrow-left" class="w-3.5 h-3.5" />
+          <span>Concursos</span>
         </NuxtLink>
         <span>/</span>
-        <span class="text-slate-200 font-medium">{{ contest.name }}</span>
+        <span class="text-white font-medium">{{ contest.name }}</span>
       </div>
 
-      <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <!-- Carbon Header Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#393939] pb-6">
         <div>
-          <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1">
-            <UIcon name="lucide:calendar" class="w-3.5 h-3.5 text-amber-400" />
-            <span>Ediciones del Certamen</span>
+          <div class="text-[11px] font-mono uppercase tracking-wider text-[#78a9ff] font-semibold mb-1">
+            Certamen Maestro
           </div>
-          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">{{ contest.name }}</h1>
-          <p class="text-xs sm:text-sm text-slate-400 mt-1">{{ contest.description || 'Gestión de ediciones anuales, fases eliminatorias y participantes' }}</p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">{{ contest.name }}</h1>
+          <p class="text-xs sm:text-sm text-[#c6c6c6] mt-1 font-mono">
+            {{ contest.description || 'Gestión de ediciones anuales, fases eliminatorias y participantes' }}
+          </p>
         </div>
 
-        <UButton
-          color="primary"
-          icon="lucide:plus"
-          size="md"
+        <button
           @click="openCreateModal"
+          class="h-10 px-4 bg-[#0f62fe] hover:bg-[#0353e9] active:bg-[#002d9c] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition self-start sm:self-auto cursor-pointer"
         >
-          Nueva Edición
-        </UButton>
+          <UIcon name="lucide:plus" class="w-4 h-4" />
+          <span>Nueva Edición</span>
+        </button>
       </div>
 
       <!-- EMPTY STATE -->
       <div
         v-if="!contest.editions || contest.editions.length === 0"
-        class="text-center py-16 px-4 bg-slate-900/40 border border-slate-800/80 rounded-3xl backdrop-blur-sm"
+        class="carbon-tile p-12 text-center"
       >
-        <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-4">
-          <UIcon name="lucide:calendar" class="w-8 h-8" />
+        <div class="w-12 h-12 bg-[#1c1c1c] border border-[#393939] text-[#78a9ff] flex items-center justify-center mx-auto mb-3">
+          <UIcon name="lucide:calendar" class="w-6 h-6" />
         </div>
-        <h3 class="text-lg font-bold text-white">No hay ediciones configuradas</h3>
-        <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mt-1 mb-6">
+        <h3 class="text-base font-bold text-white">No hay ediciones configuradas</h3>
+        <p class="text-xs text-[#8d8d8d] max-w-sm mx-auto mt-1 mb-6 font-mono">
           Crea la primera edición (ej. {{ new Date().getFullYear() }}) para definir participantes, jueces, escalas y rondas.
         </p>
-        <UButton color="primary" icon="lucide:plus" size="md" @click="openCreateModal">
-          Crear Primera Edición
-        </UButton>
+        <button
+          @click="openCreateModal"
+          class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2"
+        >
+          <UIcon name="lucide:plus" class="w-3.5 h-3.5" />
+          <span>Crear Primera Edición</span>
+        </button>
       </div>
 
-      <!-- EDITIONS GRID -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- EDITIONS GRID (Carbon Tiles) -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div
           v-for="ed in contest.editions"
           :key="ed.id"
-          class="bg-slate-900/80 border border-slate-800/80 rounded-3xl p-6 flex flex-col justify-between hover:border-slate-700 hover:shadow-xl hover:shadow-emerald-500/5 transition duration-200"
+          class="carbon-tile p-6 flex flex-col justify-between"
         >
           <div>
-            <div class="flex items-center justify-between gap-2 mb-4">
-              <h2 class="text-2xl font-black text-white tracking-tight">Edición {{ ed.name }}</h2>
-              <UBadge
-                :color="ed.status === 'active' ? 'success' : ed.status === 'finished' ? 'neutral' : 'warning'"
-                variant="subtle"
-                size="sm"
+            <div class="flex items-center justify-between gap-2 mb-4 border-b border-[#393939] pb-3">
+              <h2 class="text-xl font-bold text-white tracking-tight">Edición {{ ed.name }}</h2>
+              <span
+                class="carbon-tag"
+                :class="ed.status === 'active' ? 'carbon-tag-green' : ed.status === 'finished' ? 'carbon-tag-gray' : 'carbon-tag-warm'"
               >
-                {{ ed.status === 'active' ? 'En Curso' : ed.status === 'finished' ? 'Finalizada' : 'Borrador' }}
-              </UBadge>
+                {{ ed.status === 'active' ? 'EN CURSO' : ed.status === 'finished' ? 'FINALIZADA' : 'BORRADOR' }}
+              </span>
             </div>
 
-            <div class="space-y-2 text-xs text-slate-400 mb-6 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/50">
-              <div class="flex justify-between items-center">
+            <div class="space-y-2 text-xs font-mono text-[#8d8d8d] mb-6">
+              <div class="flex justify-between items-center py-1 border-b border-[#333333]">
                 <span>Método de Puntaje:</span>
-                <span class="text-slate-200 font-semibold capitalize">{{ ed.scoringMethod === 'average' ? 'Promedio' : 'Suma' }}</span>
+                <span class="text-white font-semibold uppercase">{{ ed.scoringMethod === 'average' ? 'Promedio' : 'Suma' }}</span>
               </div>
-              <div class="flex justify-between items-center">
-                <span>Acumulado entre rondas:</span>
-                <span class="text-slate-200 font-semibold">{{ ed.accumulateRounds ? 'Sí (Promedio)' : 'No (Desde cero)' }}</span>
+              <div class="flex justify-between items-center py-1 border-b border-[#333333]">
+                <span>Acumulado Rondas:</span>
+                <span class="text-white font-medium">{{ ed.accumulateRounds ? 'Sí (Promedio)' : 'No (Desde cero)' }}</span>
               </div>
-              <div class="flex justify-between items-center">
-                <span>Escala Calificación:</span>
-                <span class="text-emerald-400 font-mono font-bold">[{{ ed.scaleMin }} - {{ ed.scaleMax }}]</span>
+              <div class="flex justify-between items-center py-1 border-b border-[#333333]">
+                <span>Escala Permitida:</span>
+                <span class="text-[#78a9ff] font-bold">[{{ ed.scaleMin }} &ndash; {{ ed.scaleMax }} pts]</span>
               </div>
-              <div class="flex justify-between items-center">
-                <span>Alcance Criterios:</span>
-                <span class="text-slate-200 font-medium">{{ ed.criteriaScope === 'edition' ? 'General' : 'Por Ronda' }}</span>
-              </div>
-              <div class="flex justify-between items-center">
-                <span>Alcance Jueces:</span>
-                <span class="text-slate-200 font-medium">{{ ed.judgesScope === 'edition' ? 'General' : 'Por Ronda' }}</span>
+              <div class="flex justify-between items-center py-1 border-b border-[#333333]">
+                <span>Criterios / Jueces:</span>
+                <span class="text-[#c6c6c6]">{{ ed.criteriaScope === 'edition' ? 'General' : 'Por Ronda' }} / {{ ed.judgesScope === 'edition' ? 'General' : 'Por Ronda' }}</span>
               </div>
             </div>
           </div>
 
-          <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+          <div class="pt-4 border-t border-[#393939] flex items-center justify-between text-xs">
             <NuxtLink
               v-if="ed.status === 'finished' && ed.resultsPublic"
               :to="`/results/${contestId}/${ed.id}`"
               target="_blank"
-              class="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
+              class="text-[#78a9ff] hover:underline font-mono text-[11px] flex items-center gap-1"
             >
               <UIcon name="lucide:external-link" class="w-3.5 h-3.5" />
-              Página Pública
+              <span>Boletín Público</span>
             </NuxtLink>
-            <span v-else class="text-xs text-slate-500">
-              {{ ed.resultsPublic ? 'Resultados Públicos' : 'Resultados Privados' }}
+            <span v-else class="text-[11px] font-mono text-[#8d8d8d]">
+              {{ ed.resultsPublic ? 'PÚBLICO' : 'PRIVADO' }}
             </span>
 
             <NuxtLink :to="`/admin/editions/${ed.id}`">
-              <UButton variant="ghost" color="primary" size="sm" trailing-icon="lucide:chevron-right">
-                Administrar
-              </UButton>
+              <button class="h-8 px-3 text-xs font-semibold bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#78a9ff] hover:text-white flex items-center gap-1.5 transition">
+                <span>Gestionar Edición</span>
+                <UIcon name="lucide:chevron-right" class="w-3.5 h-3.5" />
+              </button>
             </NuxtLink>
           </div>
         </div>
       </div>
 
-      <!-- MODAL CREAR EDICIÓN CON UFORM Y ZOD -->
+      <!-- MODAL CREAR EDICIÓN (Carbon Modal) -->
       <UModal v-model:open="isModalOpen" title="Configurar Nueva Edición">
         <template #body>
-          <div class="p-6">
-            <div v-if="errorMsg" class="mb-5">
-              <UAlert
-                color="error"
-                variant="subtle"
-                title="Error al crear edición"
-                :description="errorMsg"
-                icon="lucide:alert-circle"
-                :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-                @close="errorMsg = ''"
-              />
+          <div class="p-6 bg-[#262626]">
+            <div v-if="errorMsg" class="mb-4 p-3 bg-[#750e13]/20 border-l-4 border-[#da1e28] text-xs text-[#ff8389]">
+              {{ errorMsg }}
             </div>
 
             <UForm :schema="editionSchema" :state="form" class="space-y-4" @submit="handleCreateEdition">
-              <UFormField label="Nombre / Año de la Edición" name="name" description="Ej. 2026, Gala Otoño 2026" required>
+              <UFormField label="Nombre / Año de la Edición" name="name" description="Ej. 2026, Otoño 2026" required>
                 <UInput v-model="form.name" placeholder="2026" class="w-full" size="md" icon="lucide:calendar" />
               </UFormField>
 
@@ -297,13 +291,23 @@ async function handleCreateEdition(event: FormSubmitEvent<EditionSchema>) {
                 </UFormField>
               </div>
 
-              <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-                <UButton variant="ghost" color="neutral" @click="isModalOpen = false">
+              <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+                <button
+                  type="button"
+                  @click="isModalOpen = false"
+                  class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]"
+                >
                   Cancelar
-                </UButton>
-                <UButton type="submit" color="primary" :loading="isSubmitting" icon="lucide:check">
-                  Crear e Ir a Edición
-                </UButton>
+                </button>
+                <button
+                  type="submit"
+                  :disabled="isSubmitting"
+                  class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <UIcon v-if="isSubmitting" name="lucide:loader-2" class="w-3.5 h-3.5 animate-spin" />
+                  <UIcon v-else name="lucide:check" class="w-3.5 h-3.5" />
+                  <span>Crear e Ir a Edición</span>
+                </button>
               </div>
             </UForm>
           </div>

@@ -10,6 +10,10 @@ definePageMeta({
 const route = useRoute();
 const editionId = route.params.id as string;
 
+useHead({
+  title: 'Premios Especiales y Métricas',
+});
+
 const { data: awardsList, status, refresh } = await useFetch(`/api/admin/editions/${editionId}/awards`);
 const { data: edition } = await useFetch(`/api/admin/editions/${editionId}`);
 
@@ -52,7 +56,6 @@ function openCreateModal() {
   isCreateModalOpen.value = true;
 }
 
-// Valores de métricas reactivas: awardId -> participantId -> number
 const metricInputs = reactive<Record<string, Record<string, number>>>({});
 
 function getMetricValue(awardId: string, participantId: string): number {
@@ -155,175 +158,152 @@ async function setManualWinner(awardId: string, participantId: string) {
 </script>
 
 <template>
-  <div>
+  <div class="space-y-6">
     <!-- SKELETON LOADING -->
     <div v-if="status === 'pending'" class="space-y-6">
-      <USkeleton class="h-4 w-40 rounded" />
+      <USkeleton class="h-4 w-40 rounded-none" />
       <div class="flex justify-between items-center">
-        <USkeleton class="h-8 w-60 rounded-xl" />
-        <USkeleton class="h-10 w-44 rounded-xl" />
+        <USkeleton class="h-8 w-60 rounded-none" />
+        <USkeleton class="h-10 w-44 rounded-none" />
       </div>
-      <div class="space-y-6 pt-4">
-        <USkeleton v-for="i in 2" :key="i" class="h-64 rounded-3xl" />
+      <div class="space-y-4 pt-4">
+        <USkeleton v-for="i in 2" :key="i" class="h-64 rounded-none" />
       </div>
     </div>
 
     <!-- MAIN CONTENT -->
     <div v-else class="space-y-6">
-      <!-- Breadcrumb -->
-      <div class="flex items-center gap-2 text-xs text-slate-400">
-        <NuxtLink :to="`/admin/editions/${editionId}`" class="hover:text-emerald-400 transition flex items-center gap-1">
-          <UIcon name="lucide:arrow-left" class="w-3 h-3" />
-          Volver a Edición
+      <!-- Carbon Breadcrumb -->
+      <div class="flex items-center gap-2 text-xs font-mono text-[#8d8d8d]">
+        <NuxtLink :to="`/admin/editions/${editionId}`" class="hover:underline text-[#c6c6c6] flex items-center gap-1">
+          <UIcon name="lucide:arrow-left" class="w-3.5 h-3.5" />
+          <span>Volver a Edición</span>
         </NuxtLink>
         <span>/</span>
-        <span class="text-slate-200 font-medium">Premios Especiales</span>
+        <span class="text-white font-medium">Premios Especiales & Métricas</span>
       </div>
 
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <!-- Header Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#393939] pb-6">
         <div>
-          <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-400 mb-1">
-            <UIcon name="lucide:award" class="w-3.5 h-3.5" />
-            <span>Métricas & Galardones Especiales</span>
+          <div class="text-[11px] font-mono uppercase tracking-wider text-[#d4bbff] font-semibold mb-1">
+            Reconocimientos Complementarios
           </div>
-          <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Premios Especiales</h1>
-          <p class="text-xs sm:text-sm text-slate-400 mt-1">Premios independientes del ganador de la corona del certamen</p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Premios Especiales</h1>
+          <p class="text-xs sm:text-sm text-[#c6c6c6] mt-1 font-mono">
+            Métricas de votación externa, acumulación de criterios o designación discrecional
+          </p>
         </div>
 
-        <UButton color="primary" icon="lucide:plus" size="md" @click="openCreateModal">
-          Nuevo Premio Especial
-        </UButton>
+        <button
+          @click="openCreateModal"
+          class="h-10 px-4 bg-[#0f62fe] hover:bg-[#0353e9] active:bg-[#002d9c] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition self-start sm:self-auto cursor-pointer"
+        >
+          <UIcon name="lucide:plus" class="w-4 h-4" />
+          <span>Nuevo Premio Especial</span>
+        </button>
       </div>
 
-      <!-- Alerts with UAlert -->
-      <div v-if="errorMsg">
-        <UAlert
-          color="error"
-          variant="subtle"
-          title="Error en la operación"
-          :description="errorMsg"
-          icon="lucide:alert-circle"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="errorMsg = ''"
-        />
+      <!-- Notifications -->
+      <div v-if="errorMsg" class="p-3.5 bg-[#750e13]/20 border-l-4 border-[#da1e28] text-xs text-[#ff8389] flex items-center justify-between">
+        <span>{{ errorMsg }}</span>
+        <button @click="errorMsg = ''" class="text-[#ff8389] hover:text-white">✕</button>
       </div>
 
-      <div v-if="successMsg">
-        <UAlert
-          color="success"
-          variant="subtle"
-          title="Operación exitosa"
-          :description="successMsg"
-          icon="lucide:check-circle"
-          :close="{ size: 'xs', color: 'neutral', variant: 'ghost' }"
-          @close="successMsg = ''"
-        />
+      <div v-if="successMsg" class="p-3.5 bg-[#0e6027]/20 border-l-4 border-[#24a148] text-xs text-[#42be65] flex items-center justify-between">
+        <span>{{ successMsg }}</span>
+        <button @click="successMsg = ''" class="text-[#42be65] hover:text-white">✕</button>
       </div>
 
       <!-- EMPTY STATE -->
       <div
         v-if="!awardsList || awardsList.length === 0"
-        class="text-center py-16 px-4 bg-slate-900/40 border border-slate-800/80 rounded-3xl"
+        class="carbon-tile p-12 text-center"
       >
-        <div class="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto mb-4">
-          <UIcon name="lucide:award" class="w-8 h-8" />
+        <div class="w-12 h-12 bg-[#1c1c1c] border border-[#393939] text-[#d4bbff] flex items-center justify-center mx-auto mb-3">
+          <UIcon name="lucide:award" class="w-6 h-6" />
         </div>
-        <h3 class="text-lg font-bold text-white">No hay premios especiales configurados</h3>
-        <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mt-1 mb-6">
-          Crea galardones como "Miss Fotogénica", "Mejor Rostro" o premios impulsados por votos en redes sociales.
+        <h3 class="text-base font-bold text-white">No hay premios especiales configurados</h3>
+        <p class="text-xs text-[#8d8d8d] max-w-sm mx-auto mt-1 mb-6 font-mono">
+          Crea galardones complementarios como "Miss Fotogénica", "Mejor Rostro" o votaciones de redes sociales.
         </p>
-        <UButton color="primary" icon="lucide:plus" size="md" @click="openCreateModal">
-          Crear Primer Premio Especial
-        </UButton>
+        <button
+          @click="openCreateModal"
+          class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider inline-flex items-center gap-2"
+        >
+          <UIcon name="lucide:plus" class="w-3.5 h-3.5" />
+          <span>Crear Primer Premio Especial</span>
+        </button>
       </div>
 
-      <!-- Awards List -->
-      <div v-else class="space-y-8">
+      <!-- Awards List (Carbon Tiles) -->
+      <div v-else class="space-y-6">
         <div
           v-for="aw in awardsList"
           :key="aw.award.id"
-          class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl backdrop-blur-md"
+          class="carbon-tile p-6 space-y-6"
         >
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#393939] pb-4">
             <div>
-              <div class="flex flex-wrap items-center gap-3">
-                <h2 class="text-xl sm:text-2xl font-black text-white">{{ aw.award.name }}</h2>
-                <UBadge color="primary" variant="subtle" size="sm" class="capitalize">
-                  {{ aw.award.type === 'criterion' ? 'Por Criterios' : aw.award.type === 'metric' ? 'Por Métrica (Redes)' : 'Elección Manual' }}
-                </UBadge>
+              <div class="flex items-center gap-3">
+                <h2 class="text-xl font-bold text-white">{{ aw.award.name }}</h2>
+                <span class="carbon-tag carbon-tag-purple uppercase">
+                  {{ aw.award.type === 'criterion' ? 'Por Criterios' : aw.award.type === 'metric' ? 'Por Métrica' : 'Elección Manual' }}
+                </span>
               </div>
-              <p class="text-xs text-slate-400 mt-1">
-                {{ aw.award.type === 'criterion' ? 'Calculado como promedio ponderado de los criterios vinculados' : aw.award.type === 'metric' ? `Mayor valor de la métrica: ${aw.award.metricLabel || 'Puntos'}` : 'Decisión directa de organizadores o jurado' }}
+              <p class="text-xs text-[#8d8d8d] font-mono mt-1">
+                {{ aw.award.type === 'criterion' ? 'Promedio ponderado de criterios seleccionados' : aw.award.type === 'metric' ? `Mayor valor de la métrica: ${aw.award.metricLabel || 'Puntos'}` : 'Designación directa de organizadores' }}
               </p>
             </div>
 
-            <!-- Ganador(es) actual(es) -->
-            <div v-if="aw.winners.length > 0" class="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/30 px-4 py-2 rounded-2xl flex-shrink-0">
-              <UIcon name="lucide:crown" class="w-5 h-5 text-amber-400" />
-              <div class="text-xs">
-                <span class="text-slate-400">Galardonada:</span>
-                <div class="text-amber-300 font-bold text-sm">
-                  {{ aw.winners.map((w: any) => w.name).join(', ') }}
-                </div>
+            <!-- Ganadora designada -->
+            <div v-if="aw.winners.length > 0" class="flex items-center gap-2 px-3 py-1.5 bg-[#1c1c1c] border border-[#f1c21b]/40">
+              <UIcon name="lucide:crown" class="w-4 h-4 text-[#f1c21b]" />
+              <div class="text-xs font-mono">
+                <span class="text-[#8d8d8d]">Galardonada:</span>
+                <span class="text-[#f1c21b] font-bold ml-1.5">{{ aw.winners.map((w: any) => w.name).join(', ') }}</span>
               </div>
             </div>
           </div>
 
-          <!-- Metric Table Input if type === 'metric' -->
-          <div v-if="aw.award.type === 'metric'" class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 class="text-sm font-semibold text-slate-300">
-                Valores numéricos de la métrica ({{ aw.award.metricLabel || 'Likes/Votos' }}):
+          <!-- Metric Input Grid if type === 'metric' -->
+          <div v-if="aw.award.type === 'metric'" class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-mono uppercase tracking-wider text-[#c6c6c6]">
+                Valores numéricos de la métrica ({{ aw.award.metricLabel || 'Puntos' }}):
               </h3>
-              <UButton
+              <button
                 v-if="edition?.participants && edition.participants.length > 0"
-                color="primary"
-                size="xs"
-                icon="lucide:save"
-                :loading="isSubmitting"
                 @click="saveMetrics(aw.award.id)"
+                :disabled="isSubmitting"
+                class="h-7 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition disabled:opacity-50"
               >
-                Guardar Métricas
-              </UButton>
+                <UIcon name="lucide:save" class="w-3 h-3" />
+                <span>Guardar Métricas</span>
+              </button>
             </div>
 
-            <!-- Estado si aún no hay participantes en la edición -->
-            <div v-if="!edition?.participants || edition.participants.length === 0" class="p-6 bg-slate-800/40 rounded-2xl border border-slate-700/60 text-center space-y-3">
-              <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
-                <UIcon name="lucide:users" class="w-5 h-5" />
-              </div>
-              <div>
-                <h4 class="font-bold text-white text-sm">Aún no hay participantes registrados en esta edición</h4>
-                <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                  Para ingresar valores de métricas (votos populares, redes), primero debes registrar a las participantes en el panel de la edición.
-                </p>
-              </div>
-              <NuxtLink :to="`/admin/editions/${editionId}`">
-                <UButton color="primary" size="xs" icon="lucide:user-plus">
-                  Ir a Registrar Participantes
-                </UButton>
-              </NuxtLink>
+            <div v-if="!edition?.participants || edition.participants.length === 0" class="p-4 bg-[#1c1c1c] border border-[#333333] text-xs text-[#8d8d8d] font-mono">
+              Registra participantes en la edición para cargar las métricas.
             </div>
 
-            <!-- Cuadrícula de inputs por participante usando UInput -->
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <div
                 v-for="p in edition.participants"
                 :key="p.id"
-                class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/70 flex items-center justify-between gap-3 hover:border-slate-600 transition"
+                class="p-2.5 bg-[#1c1c1c] border border-[#393939] flex items-center justify-between gap-2"
               >
                 <div class="min-w-0">
-                  <span class="text-xs font-mono font-bold text-emerald-400 block">#{{ p.code }}</span>
-                  <span class="text-sm font-semibold text-white block truncate">{{ p.name }}</span>
+                  <span class="text-[11px] font-mono font-bold text-[#78a9ff] block">#{{ p.code }}</span>
+                  <span class="text-xs font-medium text-white block truncate">{{ p.name }}</span>
                 </div>
-                <div class="w-32 flex-shrink-0">
+                <div class="w-28 flex-shrink-0">
                   <UInput
                     :model-value="getMetricValue(aw.award.id, p.id)"
                     @update:model-value="updateMetricValue(aw.award.id, p.id, $event)"
                     type="number"
-                    size="sm"
-                    class="w-full font-mono font-bold text-right"
-                    icon="lucide:hash"
+                    size="xs"
+                    class="w-full font-mono text-right"
                   />
                 </div>
               </div>
@@ -332,38 +312,37 @@ async function setManualWinner(awardId: string, participantId: string) {
 
           <!-- Rankings Table -->
           <div v-if="aw.rankings.length > 0" class="overflow-x-auto">
-            <table class="w-full text-left text-sm min-w-[550px]">
-              <thead class="bg-slate-800/40 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+            <table class="w-full text-left text-xs min-w-[500px]">
+              <thead class="carbon-table-header">
                 <tr>
-                  <th class="px-4 py-3">Puesto</th>
-                  <th class="px-4 py-3">Participante</th>
-                  <th class="px-4 py-3">Puntaje / Métrica</th>
-                  <th class="px-4 py-3">Estado</th>
-                  <th class="px-4 py-3 text-right">Elegir Ganadora</th>
+                  <th class="px-5 py-2.5">Puesto</th>
+                  <th class="px-5 py-2.5">Participante</th>
+                  <th class="px-5 py-2.5">Puntaje / Métrica</th>
+                  <th class="px-5 py-2.5">Estado</th>
+                  <th class="px-5 py-2.5 text-right">Acción</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-800">
-                <tr v-for="r in aw.rankings" :key="r.participantId" :class="r.isWinner ? 'bg-amber-500/10' : ''">
-                  <td class="px-4 py-3 font-mono font-bold text-slate-300">#{{ r.rank }}</td>
-                  <td class="px-4 py-3">
-                    <span class="font-semibold text-white">{{ r.name }}</span>
-                    <span class="font-mono text-xs text-slate-400 ml-2">({{ r.code }})</span>
+              <tbody class="divide-y divide-[#333333]">
+                <tr v-for="r in aw.rankings" :key="r.participantId" :class="r.isWinner ? 'bg-[#f1c21b]/10' : ''" class="hover:bg-[#2e2e2e]">
+                  <td class="px-5 py-2.5 font-mono font-bold text-white">#{{ r.rank }}</td>
+                  <td class="px-5 py-2.5 font-medium text-white">
+                    <span>{{ r.name }}</span>
+                    <span class="font-mono text-[#8d8d8d] ml-1.5">({{ r.code }})</span>
                   </td>
-                  <td class="px-4 py-3 font-mono font-bold text-emerald-400">{{ Number(r.score).toFixed(2) }}</td>
-                  <td class="px-4 py-3">
-                    <UBadge v-if="r.isWinner" color="warning" size="xs">Ganadora</UBadge>
-                    <UBadge v-else color="neutral" size="xs" variant="subtle">Participante</UBadge>
+                  <td class="px-5 py-2.5 font-mono font-bold text-[#78a9ff]">{{ Number(r.score).toFixed(2) }}</td>
+                  <td class="px-5 py-2.5">
+                    <span class="carbon-tag" :class="r.isWinner ? 'carbon-tag-warm' : 'carbon-tag-gray'">
+                      {{ r.isWinner ? 'GANADORA' : 'PARTICIPANTE' }}
+                    </span>
                   </td>
-                  <td class="px-4 py-3 text-right">
-                    <UButton
-                      size="xs"
-                      color="neutral"
-                      variant="outline"
-                      icon="lucide:crown"
+                  <td class="px-5 py-2.5 text-right">
+                    <button
                       @click="setManualWinner(aw.award.id, r.participantId)"
+                      class="h-6 px-2 text-xs font-mono text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252] inline-flex items-center gap-1"
                     >
-                      Asignar Ganadora
-                    </UButton>
+                      <UIcon name="lucide:crown" class="w-3 h-3 text-[#f1c21b]" />
+                      <span>Asignar Ganadora</span>
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -372,28 +351,28 @@ async function setManualWinner(awardId: string, participantId: string) {
         </div>
       </div>
 
-      <!-- MODAL CREAR PREMIO CON UFORM Y ZOD -->
+      <!-- MODAL CREAR PREMIO -->
       <UModal v-model:open="isCreateModalOpen" title="Crear Premio Especial">
         <template #body>
-          <div class="p-6">
+          <div class="p-6 bg-[#262626]">
             <UForm :schema="awardSchema" :state="formState" class="space-y-4" @submit="handleCreateAward">
-              <UFormField label="Nombre del Premio" name="name" description="Ej. Miss Fotogénica, Miss Elegancia, Voto Popular" required>
-                <UInput v-model="formState.name" placeholder="Nombre del galardón" class="w-full" size="md" icon="lucide:award" />
+              <UFormField label="Nombre del Galardón" name="name" description="Ej. Miss Fotogénica, Miss Simpatía" required>
+                <UInput v-model="formState.name" placeholder="Nombre del premio" class="w-full" size="md" />
               </UFormField>
 
               <UFormField label="Tipo de Premio" name="type" description="Criterio de cálculo o selección">
                 <USelect v-model="formState.type" :items="awardTypeOptions" class="w-full" />
               </UFormField>
 
-              <UFormField v-if="formState.type === 'metric'" label="Etiqueta de la Métrica" name="metricLabel" description="Ej. Votos en Instagram, Me gusta">
+              <UFormField v-if="formState.type === 'metric'" label="Etiqueta de la Métrica" name="metricLabel" description="Ej. Likes en Instagram, Votos del Público">
                 <UInput v-model="formState.metricLabel" placeholder="Votos" class="w-full" size="md" />
               </UFormField>
 
               <div v-if="formState.type === 'criterion'" class="space-y-2">
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Vincular Criterios (Se promediarán)
+                <label class="block text-xs font-mono uppercase tracking-wider text-[#c6c6c6]">
+                  Vincular Criterios (Promedio acumulado)
                 </label>
-                <div class="space-y-2.5 max-h-48 overflow-y-auto p-3 bg-slate-800/50 rounded-2xl border border-slate-700">
+                <div class="space-y-2 max-h-48 overflow-y-auto p-3 bg-[#1c1c1c] border border-[#393939]">
                   <div v-for="c in edition?.criteria" :key="c.id" class="flex items-center gap-2">
                     <UCheckbox
                       :id="`crit-${c.id}`"
@@ -408,15 +387,20 @@ async function setManualWinner(awardId: string, participantId: string) {
                       :label="`${c.name} (${Number(c.weight)}%)`"
                     />
                   </div>
-                  <p v-if="!edition?.criteria || edition.criteria.length === 0" class="text-xs text-slate-400 italic">
+                  <p v-if="!edition?.criteria || edition.criteria.length === 0" class="text-xs text-[#8d8d8d] font-mono">
                     No hay criterios registrados en la edición.
                   </p>
                 </div>
               </div>
 
-              <div class="pt-5 border-t border-slate-800 flex justify-end gap-3">
-                <UButton variant="ghost" color="neutral" @click="isCreateModalOpen = false">Cancelar</UButton>
-                <UButton type="submit" color="primary" :loading="isSubmitting" icon="lucide:check">Crear Premio</UButton>
+              <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+                <button type="button" @click="isCreateModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
+                  Cancelar
+                </button>
+                <button type="submit" :disabled="isSubmitting" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50">
+                  <UIcon name="lucide:check" class="w-3.5 h-3.5" />
+                  <span>Crear Premio</span>
+                </button>
               </div>
             </UForm>
           </div>
