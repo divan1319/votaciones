@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import { db } from '~~/server/db';
 import { awards, awardCriteria, editions } from '~~/server/db/schema';
 import { requireAdmin } from '~~/server/utils/session';

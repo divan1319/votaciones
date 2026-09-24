@@ -26,6 +26,25 @@ const newAward = reactive({
 // Valores de métricas temporales: awardId -> participantId -> number
 const metricInputs = reactive<Record<string, Record<string, number>>>({});
 
+function getMetricValue(awardId: string, participantId: string): number {
+  if (!metricInputs[awardId]) {
+    metricInputs[awardId] = {};
+  }
+  if (metricInputs[awardId][participantId] === undefined) {
+    const awData = awardsList.value?.find((a: any) => a.award.id === awardId);
+    const existing = awData?.rankings.find((r: any) => r.participantId === participantId);
+    metricInputs[awardId][participantId] = existing ? existing.score : 0;
+  }
+  return metricInputs[awardId][participantId];
+}
+
+function updateMetricValue(awardId: string, participantId: string, val: any) {
+  if (!metricInputs[awardId]) {
+    metricInputs[awardId] = {};
+  }
+  metricInputs[awardId][participantId] = Number(val) || 0;
+}
+
 watchEffect(() => {
   if (awardsList.value && edition.value?.participants) {
     for (const item of awardsList.value) {
@@ -34,7 +53,7 @@ watchEffect(() => {
           metricInputs[item.award.id] = {};
         }
         for (const p of edition.value.participants) {
-          const existing = item.rankings.find((r) => r.participantId === p.id);
+          const existing = item.rankings.find((r: any) => r.participantId === p.id);
           if (metricInputs[item.award.id][p.id] === undefined) {
             metricInputs[item.award.id][p.id] = existing ? existing.score : 0;
           }
@@ -176,26 +195,56 @@ async function setManualWinner(awardId: string, participantId: string) {
         <div v-if="aw.award.type === 'metric'" class="space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-slate-300">Cargar valores numéricos de la métrica ({{ aw.award.metricLabel || 'Likes/Votos' }}):</h3>
-            <UButton color="primary" size="xs" icon="lucide:save" :loading="isSubmitting" @click="saveMetrics(aw.award.id)">
+            <UButton
+              v-if="edition?.participants && edition.participants.length > 0"
+              color="primary"
+              size="xs"
+              icon="lucide:save"
+              :loading="isSubmitting"
+              @click="saveMetrics(aw.award.id)"
+            >
               Guardar Métricas
             </UButton>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <!-- Estado si aún no hay participantes en la edición -->
+          <div v-if="!edition?.participants || edition.participants.length === 0" class="p-6 bg-slate-800/40 rounded-2xl border border-slate-700/60 text-center space-y-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
+              <UIcon name="lucide:users" class="w-5 h-5" />
+            </div>
+            <div>
+              <h4 class="font-bold text-white text-sm">Aún no hay participantes registrados en esta edición</h4>
+              <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                Para ingresar los valores de esta métrica (likes, votos, etc.), primero debes registrar a las participantes en el panel de la edición.
+              </p>
+            </div>
+            <NuxtLink :to="`/admin/editions/${editionId}`">
+              <UButton color="primary" size="xs" icon="lucide:user-plus">
+                Ir a Registrar Participantes
+              </UButton>
+            </NuxtLink>
+          </div>
+
+          <!-- Cuadrícula de inputs por participante -->
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div
-              v-for="p in edition?.participants"
+              v-for="p in edition.participants"
               :key="p.id"
-              class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/60 flex items-center justify-between gap-2"
+              class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/70 flex items-center justify-between gap-3 hover:border-slate-600 transition"
             >
-              <div>
-                <div class="text-xs font-mono font-bold text-emerald-400">{{ p.code }}</div>
-                <div class="text-sm font-medium text-white truncate max-w-[140px]">{{ p.name }}</div>
+              <div class="min-w-0">
+                <span class="text-xs font-mono font-bold text-emerald-400 block">#{{ p.code }}</span>
+                <span class="text-sm font-semibold text-white block truncate">{{ p.name }}</span>
               </div>
-              <input
-                v-model.number="metricInputs[aw.award.id][p.id]"
-                type="number"
-                class="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-right text-sm font-mono text-emerald-300 focus:outline-none focus:border-emerald-500"
-              />
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <input
+                  :value="getMetricValue(aw.award.id, p.id)"
+                  @input="updateMetricValue(aw.award.id, p.id, ($event.target as HTMLInputElement).value)"
+                  type="number"
+                  placeholder="0"
+                  class="w-28 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-right text-sm font-mono font-bold text-emerald-300 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
             </div>
           </div>
         </div>
