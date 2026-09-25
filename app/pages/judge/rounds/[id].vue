@@ -156,6 +156,17 @@ async function submitFinal() {
         <span class="text-white font-medium">{{ roundData.round.name }}</span>
       </div>
 
+      <!-- Round Pending Notice -->
+      <div v-if="roundData.round.status === 'pending'" class="p-4 bg-[#f1c21b]/15 border-l-4 border-[#f1c21b] text-xs text-[#f4f4f4] space-y-1 font-mono">
+        <div class="flex items-center gap-2 font-bold text-[#f1c21b] uppercase tracking-wider">
+          <UIcon name="lucide:clock" class="w-4 h-4 flex-shrink-0" />
+          <span>Fase en Espera de Apertura Oficial</span>
+        </div>
+        <p class="font-sans text-xs text-[#c6c6c6]">
+          El certamen está activo, pero el administrador aún no ha abierto formalmente esta fase para votación. La nómina de participantes aparecerá aquí tan pronto el administrador pulse "Abrir Votación".
+        </p>
+      </div>
+
       <!-- Inmutability Alert if submitted -->
       <div v-if="roundData.isSubmitted" class="p-4 bg-[#0e6027]/20 border-l-4 border-[#24a148] text-xs text-[#f4f4f4] space-y-1 font-mono">
         <div class="flex items-center gap-2 font-bold text-[#42be65] uppercase tracking-wider">
@@ -238,7 +249,11 @@ async function submitFinal() {
             Nómina de Participantes ({{ roundData.participants?.length || 0 }})
           </h3>
           <div class="space-y-1.5 max-h-[620px] overflow-y-auto pr-1">
+            <div v-if="!roundData.participants || roundData.participants.length === 0" class="p-6 text-center text-xs text-[#8d8d8d] font-mono">
+              {{ roundData.round.status === 'pending' ? 'Esperando apertura de votación...' : 'No hay participantes asignados a esta fase.' }}
+            </div>
             <button
+              v-else
               v-for="p in roundData.participants"
               :key="p.id"
               @click="selectedParticipantId = p.id"
@@ -335,11 +350,29 @@ async function submitFinal() {
             </div>
           </div>
 
+          <div v-else class="p-12 text-center my-auto">
+            <div class="w-12 h-12 bg-[#1c1c1c] border border-[#393939] text-[#78a9ff] flex items-center justify-center mx-auto mb-3">
+              <UIcon :name="roundData.round.status === 'pending' ? 'lucide:clock' : 'lucide:user-x'" class="w-6 h-6" />
+            </div>
+            <h3 class="text-base font-bold text-white font-mono">
+              {{ roundData.round.status === 'pending' ? 'Fase en Espera de Apertura' : 'Ninguna candidata seleccionada' }}
+            </h3>
+            <p class="text-xs text-[#8d8d8d] max-w-sm mx-auto mt-2 font-mono">
+              {{ roundData.round.status === 'pending'
+                ? 'El certamen se encuentra activo, pero el administrador aún no ha abierto formalmente la votación para esta fase. Las participantes aparecerán en cuanto se abra la ronda.'
+                : 'Selecciona una candidata en la nómina para calificarla.' }}
+            </p>
+          </div>
+
           <!-- Bottom Action Bar -->
           <div class="pt-6 mt-8 border-t border-[#393939] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="text-xs font-mono w-full sm:w-auto">
               <template v-if="!roundData.isSubmitted">
-                <span v-if="!isAllComplete" class="text-[#f1c21b] font-medium flex items-center gap-1.5">
+                <span v-if="roundData.round.status === 'pending'" class="text-[#f1c21b] font-medium flex items-center gap-1.5">
+                  <UIcon name="lucide:clock" class="w-4 h-4 flex-shrink-0" />
+                  Ronda pendiente de apertura por el administrador.
+                </span>
+                <span v-else-if="!isAllComplete" class="text-[#f1c21b] font-medium flex items-center gap-1.5">
                   <UIcon name="lucide:alert-circle" class="w-4 h-4 flex-shrink-0" />
                   Faltan {{ totalCount - completedCount }} participante(s) para habilitar el envío definitivo.
                 </span>
@@ -354,8 +387,8 @@ async function submitFinal() {
               <button
                 type="button"
                 @click="saveDraft"
-                :disabled="isSavingDraft"
-                class="h-9 px-4 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                :disabled="isSavingDraft || roundData.round.status !== 'open' || totalCount === 0"
+                class="h-9 px-4 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
               >
                 <UIcon name="lucide:save" class="w-3.5 h-3.5 text-[#78a9ff]" />
                 <span>Guardar Borrador</span>
@@ -364,7 +397,7 @@ async function submitFinal() {
               <button
                 type="button"
                 @click="isConfirmModalOpen = true"
-                :disabled="!isAllComplete"
+                :disabled="!isAllComplete || roundData.round.status !== 'open' || isSubmittingFinal"
                 class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] active:bg-[#002d9c] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
               >
                 <UIcon name="lucide:send" class="w-3.5 h-3.5" />

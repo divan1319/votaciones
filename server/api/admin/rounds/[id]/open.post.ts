@@ -70,8 +70,8 @@ export default defineEventHandler(async (event) => {
     .from(roundParticipants)
     .where(eq(roundParticipants.roundId, round.id));
 
-  if (currentRoundParts.length === 0 && round.position === 1) {
-    // Es la primera ronda: copiar todos los participantes activos de la edición
+  if (round.position === 1) {
+    // Es la primera ronda: sincronizar todos los participantes activos de la edición
     const editionParts = await db
       .select()
       .from(participants)

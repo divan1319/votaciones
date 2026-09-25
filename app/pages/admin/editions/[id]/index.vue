@@ -58,12 +58,64 @@ const participantState = reactive<ParticipantSchema>({
 const criterionSchema = z.object({
   name: z.string().min(1, 'El nombre del criterio es obligatorio'),
   weight: z.number().min(1, 'Mínimo 1%').max(100, 'Máximo 100%'),
+  roundId: z.string().optional(),
 });
 type CriterionSchema = z.output<typeof criterionSchema>;
-const criterionState = reactive<CriterionSchema>({
+const criterionState = reactive({
   name: '',
   weight: 25,
+  roundId: '',
 });
+
+const selectedRoundForCriteria = ref('all');
+
+const roundOptions = computed(() => {
+  if (!edition.value?.rounds) return [];
+  return edition.value.rounds.map((r: any) => ({
+    label: `${r.position}. ${r.name}`,
+    value: r.id,
+  }));
+});
+
+function getWeightForRound(roundId: string) {
+  if (!edition.value?.criteria) return 0;
+  return Number(
+    edition.value.criteria
+      .filter((c: any) => c.roundId === roundId)
+      .reduce((acc: number, c: any) => acc + Number(c.weight), 0)
+      .toFixed(2)
+  );
+}
+
+const filteredCriteria = computed(() => {
+  if (!edition.value?.criteria) return [];
+  if (edition.value.criteriaScope !== 'round' || selectedRoundForCriteria.value === 'all') {
+    return edition.value.criteria;
+  }
+  return edition.value.criteria.filter((c: any) => c.roundId === selectedRoundForCriteria.value);
+});
+
+// Modales y configuración de la edición
+const isEditEditionModalOpen = ref(false);
+const editionEditState = reactive({
+  name: '',
+  scoringMethod: 'average' as 'average' | 'sum',
+  accumulateRounds: false,
+  criteriaScope: 'edition' as 'edition' | 'round',
+  judgesScope: 'edition' as 'edition' | 'round',
+  scaleMin: 1,
+  scaleMax: 10,
+});
+
+const scoringMethodOptions = [
+  { label: 'Promedio de Calificaciones', value: 'average' },
+  { label: 'Suma Total de Calificaciones', value: 'sum' },
+];
+
+const criteriaScopeOptions = [
+  { label: 'General (Criterios compartidos en todas las fases)', value: 'edition' },
+  { label: 'Por Ronda (Criterios independientes para cada fase)', value: 'round' },
+];
 
 const judgeSchema = z.object({
   name: z.string().min(1, 'El nombre del juez es obligatorio'),
@@ -85,7 +137,13 @@ const totalCriteriaWeight = computed(() => {
 });
 
 const isCriteriaWeightValid = computed(() => {
-  return Math.abs(totalCriteriaWeight.value - 100) < 0.01;
+  if (!edition.value) return false;
+  if (edition.value.criteriaScope === 'edition') {
+    return Math.abs(totalCriteriaWeight.value - 100) < 0.01;
+  }
+  // En modo round, cada ronda debe tener 100%
+  if (!edition.value.rounds || edition.value.rounds.length === 0) return false;
+  return edition.value.rounds.every((r: any) => Math.abs(getWeightForRound(r.id) - 100) < 0.01);
 });
 
 async function activateEdition() {
@@ -193,13 +251,119 @@ async function handleCreateCriterion(event: FormSubmitEvent<CriterionSchema>) {
       body: {
         name: event.data.name,
         weight: Number(event.data.weight),
+        roundId: edition.value?.criteriaScope === 'round' ? (event.data.roundId || null) : null,
       },
     });
     criterionState.name = '';
+    criterionState.roundId = '';
     isAddCriterionModalOpen.value = false;
     await refresh();
   } catch (err: any) {
     errorMsg.value = err.data?.message || err.message;
+  }
+}
+
+async function assignCriterionToRound(criterionId: string, targetRoundId: string | null) {
+  loadingAction.value = true;
+  errorMsg.value = '';
+  try {
+    await $fetch(`/api/admin/criteria/${criterionId}`, {
+      method: 'PUT',
+      body: { roundId: targetRoundId || null },
+    });
+    await refresh();
+  } catch (err: any) {
+    errorMsg.value = err.data?.message || err.message;
+  } finally {
+    loadingAction.value = false;
+  }
+}
+
+async function moveRound(roundId: string, direction: 'up' | 'down') {
+  loadingAction.value = true;
+  errorMsg.value = '';
+  try {
+    await $fetch(`/api/admin/rounds/${roundId}/reorder`, {
+      method: 'POST',
+      body: { direction },
+    });
+    await refresh();
+  } catch (err: any) {
+    errorMsg.value = err.data?.message || err.message;
+  } finally {
+    loadingAction.value = false;
+  }
+}
+
+async function deleteRound(roundId: string) {
+  if (!confirm('¿Estás seguro de eliminar esta fase eliminatoria?')) return;
+  loadingAction.value = true;
+  errorMsg.value = '';
+  try {
+    await $fetch(`/api/admin/rounds/${roundId}`, { method: 'DELETE' });
+    await refresh();
+  } catch (err: any) {
+    errorMsg.value = err.data?.message || err.message;
+  } finally {
+    loadingAction.value = false;
+  }
+}
+
+function openEditEditionModal() {
+  if (!edition.value) return;
+  editionEditState.name = edition.value.name;
+  editionEditState.scoringMethod = edition.value.scoringMethod;
+  editionEditState.accumulateRounds = !!edition.value.accumulateRounds;
+  editionEditState.criteriaScope = edition.value.criteriaScope;
+  editionEditState.judgesScope = edition.value.judgesScope;
+  editionEditState.scaleMin = Number(edition.value.scaleMin);
+  editionEditState.scaleMax = Number(edition.value.scaleMax);
+  isEditEditionModalOpen.value = true;
+}
+
+async function handleUpdateEdition() {
+  loadingAction.value = true;
+  errorMsg.value = '';
+  try {
+    await $fetch(`/api/admin/editions/${editionId}`, {
+      method: 'PUT',
+      body: {
+        name: editionEditState.name,
+        scoringMethod: editionEditState.scoringMethod,
+        accumulateRounds: editionEditState.accumulateRounds,
+        criteriaScope: editionEditState.criteriaScope,
+        judgesScope: editionEditState.judgesScope,
+        scaleMin: Number(editionEditState.scaleMin),
+        scaleMax: Number(editionEditState.scaleMax),
+      },
+    });
+    isEditEditionModalOpen.value = false;
+    successMsg.value = 'Configuración de la edición actualizada.';
+    await refresh();
+  } catch (err: any) {
+    errorMsg.value = err.data?.message || err.message;
+  } finally {
+    loadingAction.value = false;
+  }
+}
+
+async function switchToGeneralCriteria() {
+  if (!confirm('¿Deseas cambiar el alcance de criterios a GENERAL? Los criterios registrados aplicarán automáticamente a todas las fases del certamen.')) return;
+  loadingAction.value = true;
+  errorMsg.value = '';
+  try {
+    await $fetch(`/api/admin/editions/${editionId}`, {
+      method: 'PUT',
+      body: {
+        criteriaScope: 'edition',
+      },
+    });
+    successMsg.value = 'Alcance cambiado a General. Los criterios ahora aplican a todas las fases.';
+    await refresh();
+  } catch (err: any) {
+    errorMsg.value = err.data?.message || err.message;
+  } finally {
+    loadingAction.value = false;
   }
 }
 
@@ -319,11 +483,25 @@ async function unassignJudge(judgeId: string) {
               <span>BOLETÍN: </span>
               <strong class="text-white">{{ edition.resultsPublic ? 'PÚBLICO' : 'PRIVADO' }}</strong>
             </div>
+            <span>&bull;</span>
+            <div>
+              <span>CRITERIOS: </span>
+              <strong class="text-[#78a9ff] uppercase">{{ edition.criteriaScope === 'edition' ? 'General' : 'Por Ronda' }}</strong>
+            </div>
           </div>
         </div>
 
         <!-- Life-Cycle Action Buttons in Carbon Style -->
         <div class="flex flex-wrap items-center gap-2">
+          <button
+            v-if="edition.status !== 'finished'"
+            @click="openEditEditionModal"
+            class="h-9 px-4 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white text-xs font-semibold tracking-wider flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <UIcon name="lucide:settings" class="w-3.5 h-3.5 text-[#78a9ff]" />
+            <span>Configurar</span>
+          </button>
+
           <button
             v-if="edition.status === 'draft'"
             @click="activateEdition"
@@ -398,13 +576,44 @@ async function unassignJudge(judgeId: string) {
       </div>
 
       <!-- Criteria Balance Banner in Criteria View -->
-      <div v-if="activeTab === 'criteria'">
+      <div v-if="activeTab === 'criteria'" class="space-y-3">
+        <!-- Banner cuando es Por Ronda -->
+        <div
+          v-if="edition.criteriaScope === 'round'"
+          class="p-4 bg-[#1c1c1c] border-l-4 border-[#78a9ff] text-xs text-[#c6c6c6] flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono"
+        >
+          <div>
+            <strong class="text-white block uppercase tracking-wider">Alcance actual: Por Ronda</strong>
+            <p class="text-[#8d8d8d] text-xs mt-0.5">Cada fase eliminatoria debe tener sus propios criterios que sumen exactamente 100%.</p>
+          </div>
+          <button
+            @click="switchToGeneralCriteria"
+            :disabled="loadingAction"
+            class="h-8 px-3 bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#78a9ff] hover:text-white text-xs font-semibold self-start sm:self-auto transition cursor-pointer"
+          >
+            Cambiar a Criterios Generales (Compartidos)
+          </button>
+        </div>
+
+        <div
+          v-if="edition.criteriaScope === 'edition'"
+          class="p-3.5 bg-[#0e6027]/10 border-l-4 border-[#24a148] text-xs text-[#42be65] flex items-center gap-2 font-mono"
+        >
+          <UIcon name="lucide:check-circle" class="w-4 h-4 flex-shrink-0" />
+          <span>Alcance General: Los siguientes criterios se aplican automáticamente a todas las fases eliminatorias del certamen.</span>
+        </div>
+
         <div
           v-if="!isCriteriaWeightValid"
           class="p-3.5 bg-[#f1c21b]/10 border-l-4 border-[#f1c21b] text-xs text-[#f1c21b] flex items-center gap-2 font-mono"
         >
           <UIcon name="lucide:alert-triangle" class="w-4 h-4 flex-shrink-0" />
-          <span>ADVERTENCIA: La suma actual es {{ totalCriteriaWeight }}%. Debe ser exactamente 100% para que las evaluaciones sean válidas.</span>
+          <span v-if="edition.criteriaScope === 'edition'">
+            ADVERTENCIA: La suma actual es {{ totalCriteriaWeight }}%. Debe ser exactamente 100% para que las evaluaciones sean válidas.
+          </span>
+          <span v-else>
+            ADVERTENCIA: Algunas rondas no alcanzan el 100% requerido. Cada fase debe sumar 100% para poder abrir votación.
+          </span>
         </div>
         <div
           v-else
@@ -446,7 +655,7 @@ async function unassignJudge(judgeId: string) {
             class="carbon-tag ml-1"
             :class="isCriteriaWeightValid ? 'carbon-tag-green' : 'carbon-tag-warm'"
           >
-            {{ totalCriteriaWeight }}%
+            {{ edition.criteriaScope === 'edition' ? `${totalCriteriaWeight}%` : (isCriteriaWeightValid ? '100%' : 'Incompleto') }}
           </span>
         </button>
 
@@ -508,20 +717,56 @@ async function unassignJudge(judgeId: string) {
                   >
                     {{ r.status === 'open' ? 'ABIERTA' : r.status === 'closed' ? 'CERRADA' : 'PENDIENTE' }}
                   </span>
+                  <span
+                    v-if="edition.criteriaScope === 'round'"
+                    class="carbon-tag"
+                    :class="getWeightForRound(r.id) === 100 ? 'carbon-tag-green' : 'carbon-tag-warm'"
+                  >
+                    {{ getWeightForRound(r.id) === 100 ? 'Criterios: 100%' : `Criterios: ${getWeightForRound(r.id)}%` }}
+                  </span>
                 </div>
                 <div class="text-xs font-mono text-[#8d8d8d] mt-1 flex flex-wrap gap-4">
                   <span>Modo Avance: <strong class="text-white">{{ r.advanceMode === 'top_n' ? `Top ${r.advanceValue}` : `Mínimo ${r.advanceValue} pts` }}</strong></span>
-                  <span>Participantes: <strong class="text-white">{{ r.roundParticipants?.length || 0 }}</strong></span>
+                  <span>Participantes: <strong class="text-white">{{ (r as any).participantCount ?? (r as any).roundParticipants?.length ?? 0 }}</strong></span>
                 </div>
               </div>
             </div>
 
             <div class="flex items-center gap-2">
+              <div v-if="r.status === 'pending'" class="flex items-center gap-1 mr-1">
+                <button
+                  v-if="r.position > 1"
+                  @click="moveRound(r.id, 'up')"
+                  :disabled="loadingAction"
+                  title="Mover fase arriba (reducir orden)"
+                  class="h-8 w-8 flex items-center justify-center bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white transition disabled:opacity-50 cursor-pointer"
+                >
+                  <UIcon name="lucide:arrow-up" class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  v-if="r.position < edition.rounds.length"
+                  @click="moveRound(r.id, 'down')"
+                  :disabled="loadingAction"
+                  title="Mover fase abajo (aumentar orden)"
+                  class="h-8 w-8 flex items-center justify-center bg-[#262626] hover:bg-[#393939] border border-[#525252] text-[#c6c6c6] hover:text-white transition disabled:opacity-50 cursor-pointer"
+                >
+                  <UIcon name="lucide:arrow-down" class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  @click="deleteRound(r.id)"
+                  :disabled="loadingAction"
+                  title="Eliminar fase eliminatoria"
+                  class="h-8 w-8 flex items-center justify-center bg-[#750e13]/20 hover:bg-[#da1e28] border border-[#da1e28]/50 text-[#ff8389] hover:text-white transition disabled:opacity-50 cursor-pointer ml-1"
+                >
+                  <UIcon name="lucide:trash-2" class="w-3.5 h-3.5" />
+                </button>
+              </div>
+
               <button
                 v-if="r.status === 'pending'"
                 @click="openRound(r.id)"
                 :disabled="loadingAction"
-                class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer"
+                class="h-8 px-3 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
               >
                 <UIcon name="lucide:play" class="w-3 h-3" />
                 <span>Abrir Votación</span>
@@ -606,19 +851,72 @@ async function unassignJudge(judgeId: string) {
           </button>
         </div>
 
+        <!-- Filtro por ronda cuando el alcance es Por Ronda -->
+        <div v-if="edition.criteriaScope === 'round'" class="flex border-b border-[#333333] gap-2 overflow-x-auto pb-1">
+          <button
+            @click="selectedRoundForCriteria = 'all'"
+            class="px-3 py-1.5 text-xs font-mono transition cursor-pointer"
+            :class="selectedRoundForCriteria === 'all' ? 'bg-[#393939] text-white font-bold' : 'text-[#8d8d8d] hover:text-white'"
+          >
+            Todas las Fases ({{ edition.criteria?.length || 0 }})
+          </button>
+          <button
+            v-for="r in edition.rounds"
+            :key="r.id"
+            @click="selectedRoundForCriteria = r.id"
+            class="px-3 py-1.5 text-xs font-mono transition flex items-center gap-1.5 cursor-pointer"
+            :class="selectedRoundForCriteria === r.id ? 'bg-[#393939] text-white font-bold' : 'text-[#8d8d8d] hover:text-white'"
+          >
+            <span>{{ r.position }}. {{ r.name }}</span>
+            <span
+              class="text-[10px] px-1.5 py-0.5"
+              :class="getWeightForRound(r.id) === 100 ? 'bg-[#0e6027] text-[#42be65]' : 'bg-[#750e13] text-[#ff8389]'"
+            >
+              {{ getWeightForRound(r.id) }}%
+            </span>
+          </button>
+        </div>
+
         <div class="carbon-tile overflow-x-auto">
           <table class="w-full text-left text-xs min-w-[500px]">
             <thead class="carbon-table-header">
               <tr>
                 <th class="px-5 py-3">Criterio</th>
                 <th class="px-5 py-3">Ponderación (%)</th>
+                <th v-if="edition.criteriaScope === 'round'" class="px-5 py-3">Fase Asignada</th>
                 <th class="px-5 py-3 text-right">Acción</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-[#333333]">
-              <tr v-for="c in edition.criteria" :key="c.id" class="hover:bg-[#2e2e2e] transition">
+              <tr v-for="c in filteredCriteria" :key="c.id" class="hover:bg-[#2e2e2e] transition">
                 <td class="px-5 py-3 font-medium text-white">{{ c.name }}</td>
                 <td class="px-5 py-3 font-mono font-bold text-[#78a9ff]">{{ Number(c.weight) }}%</td>
+                <td v-if="edition.criteriaScope === 'round'" class="px-5 py-3">
+                  <div v-if="c.roundId" class="flex items-center gap-2">
+                    <span class="text-white font-mono">
+                      {{ edition.rounds?.find((r: any) => r.id === c.roundId)?.name || 'Fase ' + c.roundId }}
+                    </span>
+                    <button
+                      @click="assignCriterionToRound(c.id, null)"
+                      class="text-[10px] text-[#8d8d8d] hover:text-[#ff8389] underline ml-1 cursor-pointer"
+                      title="Desvincular de esta fase para reasignar"
+                    >
+                      (Cambiar)
+                    </button>
+                  </div>
+                  <div v-else class="flex items-center gap-2">
+                    <span class="carbon-tag carbon-tag-warm text-[10px]">Sin asignar</span>
+                    <select
+                      @change="(e: any) => assignCriterionToRound(c.id, e.target.value)"
+                      class="bg-[#1c1c1c] border border-[#525252] text-[#78a9ff] text-xs px-2 py-1 cursor-pointer"
+                    >
+                      <option value="" disabled selected>Asignar a fase...</option>
+                      <option v-for="r in edition.rounds" :key="r.id" :value="r.id">
+                        {{ r.position }}. {{ r.name }}
+                      </option>
+                    </select>
+                  </div>
+                </td>
                 <td class="px-5 py-3 text-right">
                   <button
                     @click="deleteCriterion(c.id)"
@@ -629,9 +927,9 @@ async function unassignJudge(judgeId: string) {
                   </button>
                 </td>
               </tr>
-              <tr v-if="!edition.criteria || edition.criteria.length === 0">
-                <td colspan="3" class="px-5 py-8 text-center text-[#8d8d8d] font-mono">
-                  No hay criterios registrados. La suma debe dar 100%.
+              <tr v-if="!filteredCriteria || filteredCriteria.length === 0">
+                <td :colspan="edition.criteriaScope === 'round' ? 4 : 3" class="px-5 py-8 text-center text-[#8d8d8d] font-mono">
+                  No hay criterios registrados en esta vista.
                 </td>
               </tr>
             </tbody>
@@ -794,6 +1092,22 @@ async function unassignJudge(judgeId: string) {
         <template #body>
           <div class="p-6 bg-[#262626]">
             <UForm :schema="criterionSchema" :state="criterionState" class="space-y-4" @submit="handleCreateCriterion">
+              <UFormField
+                v-if="edition?.criteriaScope === 'round'"
+                label="Fase / Ronda Asignada"
+                name="roundId"
+                description="Selecciona a qué fase pertenece este criterio"
+                required
+              >
+                <USelect
+                  v-model="criterionState.roundId"
+                  :items="roundOptions"
+                  placeholder="Seleccionar fase..."
+                  class="w-full"
+                  size="md"
+                />
+              </UFormField>
+
               <UFormField label="Nombre del Criterio" name="name" description="Ej. Pasarela, Belleza Integral, Entrevista" required>
                 <UInput v-model="criterionState.name" placeholder="Nombre del criterio" class="w-full" size="md" />
               </UFormField>
@@ -806,7 +1120,7 @@ async function unassignJudge(judgeId: string) {
                 <button type="button" @click="isAddCriterionModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
                   Cancelar
                 </button>
-                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
                   <UIcon name="lucide:check" class="w-3.5 h-3.5" />
                   <span>Añadir Criterio</span>
                 </button>
@@ -837,12 +1151,55 @@ async function unassignJudge(judgeId: string) {
                 <button type="button" @click="isAddJudgeModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
                   Cancelar
                 </button>
-                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <button type="submit" class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
                   <UIcon name="lucide:check" class="w-3.5 h-3.5" />
                   <span>Registrar Juez</span>
                 </button>
               </div>
             </UForm>
+          </div>
+        </template>
+      </UModal>
+
+      <!-- Modal Editar Configuración de la Edición -->
+      <UModal v-model:open="isEditEditionModalOpen" title="Configurar Parámetros del Certamen">
+        <template #body>
+          <div class="p-6 bg-[#262626] space-y-4 font-mono text-xs">
+            <UFormField label="Nombre de la Edición" description="Ej. 2028, Primavera">
+              <UInput v-model="editionEditState.name" class="w-full" size="md" />
+            </UFormField>
+
+            <UFormField label="Alcance de Criterios" description="Define si los criterios aplican a todo el certamen o independientemente por fase">
+              <USelect v-model="editionEditState.criteriaScope" :items="criteriaScopeOptions" class="w-full" size="md" />
+            </UFormField>
+
+            <UFormField label="Método de Puntaje" description="Fórmula para consolidar los votos de los jueces">
+              <USelect v-model="editionEditState.scoringMethod" :items="scoringMethodOptions" class="w-full" size="md" />
+            </UFormField>
+
+            <div class="grid grid-cols-2 gap-4">
+              <UFormField label="Escala Mínima">
+                <UInput v-model.number="editionEditState.scaleMin" type="number" class="w-full" size="md" />
+              </UFormField>
+              <UFormField label="Escala Máxima">
+                <UInput v-model.number="editionEditState.scaleMax" type="number" class="w-full" size="md" />
+              </UFormField>
+            </div>
+
+            <div class="pt-5 border-t border-[#393939] flex justify-end gap-2">
+              <button type="button" @click="isEditEditionModalOpen = false" class="h-9 px-4 text-xs font-medium text-[#c6c6c6] hover:text-white hover:bg-[#393939] border border-[#525252]">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                @click="handleUpdateEdition"
+                :disabled="loadingAction"
+                class="h-9 px-4 bg-[#0f62fe] hover:bg-[#0353e9] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <UIcon name="lucide:check" class="w-3.5 h-3.5" />
+                <span>Guardar Cambios</span>
+              </button>
+            </div>
           </div>
         </template>
       </UModal>

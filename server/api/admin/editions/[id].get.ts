@@ -1,6 +1,6 @@
-import { eq, asc, desc, inArray } from 'drizzle-orm';
+import { eq, asc, desc, inArray, sql } from 'drizzle-orm';
 import { db } from '~~/server/db';
-import { editions, contests, rounds, participants, criteria, editionJudges, roundJudges, awards, user } from '~~/server/db/schema';
+import { editions, contests, rounds, participants, criteria, editionJudges, roundJudges, roundParticipants, awards, user } from '~~/server/db/schema';
 import { requireAdmin } from '~~/server/utils/session';
 
 export default defineEventHandler(async (event) => {
@@ -18,6 +18,29 @@ export default defineEventHandler(async (event) => {
     .from(rounds)
     .where(eq(rounds.editionId, id))
     .orderBy(asc(rounds.position));
+
+  const roundIds = editionRounds.map((r) => r.id);
+  const participantCounts = new Map<string, number>();
+
+  if (roundIds.length > 0) {
+    const counts = await db
+      .select({
+        roundId: roundParticipants.roundId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(roundParticipants)
+      .where(inArray(roundParticipants.roundId, roundIds))
+      .groupBy(roundParticipants.roundId);
+
+    for (const c of counts) {
+      participantCounts.set(c.roundId, Number(c.count));
+    }
+  }
+
+  const roundsWithCount = editionRounds.map((r) => ({
+    ...r,
+    participantCount: participantCounts.get(r.id) || 0,
+  }));
 
   const editionParticipants = await db
     .select()
@@ -54,7 +77,7 @@ export default defineEventHandler(async (event) => {
   return {
     ...edition,
     contest,
-    rounds: editionRounds,
+    rounds: roundsWithCount,
     participants: editionParticipants,
     criteria: editionCriteria,
     awards: editionAwards,

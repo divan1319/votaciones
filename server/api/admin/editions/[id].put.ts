@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '~~/server/db';
-import { editions, rounds, scores } from '~~/server/db/schema';
+import { editions, rounds, scores, criteria } from '~~/server/db/schema';
 import { requireAdmin } from '~~/server/utils/session';
 
 const schema = z.object({
@@ -64,6 +64,11 @@ export default defineEventHandler(async (event) => {
     })
     .where(eq(editions.id, id))
     .returning();
+
+  if (body.criteriaScope === 'edition') {
+    // Si cambia a general, unificar criterios a roundId = null
+    await db.update(criteria).set({ roundId: null }).where(eq(criteria.editionId, id));
+  }
 
   return updatedEdition;
 });

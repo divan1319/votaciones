@@ -33,11 +33,18 @@ export default defineEventHandler(async (event) => {
 
   const body = await readValidatedBody(event, (b) => schema.parse(b));
 
+  if (edition.criteriaScope === 'round' && !body.roundId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'El certamen está configurado con criterios por ronda. Debe seleccionar a qué ronda pertenece este criterio.',
+    });
+  }
+
   const [newCrit] = await db
     .insert(criteria)
     .values({
       editionId: id,
-      roundId: edition.criteriaScope === 'round' ? (body.roundId || null) : null,
+      roundId: edition.criteriaScope === 'round' ? body.roundId : null,
       name: body.name,
       weight: body.weight.toString(),
     })

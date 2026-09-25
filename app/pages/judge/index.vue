@@ -78,7 +78,7 @@ const { data: roundsList, status, refresh } = await useFetch('/api/judge/rounds'
                 class="carbon-tag"
                 :class="r.isSubmitted ? 'carbon-tag-gray' : r.roundStatus === 'open' ? 'carbon-tag-green' : 'carbon-tag-warm'"
               >
-                {{ r.isSubmitted ? 'SELLADA (INMUTABLE)' : r.roundStatus === 'open' ? 'HABILITADA' : 'PENDIENTE' }}
+                {{ r.isSubmitted ? 'SELLADA (INMUTABLE)' : r.roundStatus === 'open' ? 'HABILITADA' : 'PENDIENTE DE APERTURA' }}
               </span>
             </div>
 
@@ -101,15 +101,15 @@ const { data: roundsList, status, refresh } = await useFetch('/api/judge/rounds'
 
           <div class="pt-4 border-t border-[#393939] flex items-center justify-between text-xs">
             <span class="font-mono text-[11px] text-[#8d8d8d]">
-              {{ r.roundStatus === 'open' && !r.isSubmitted ? 'VOTACIÓN ACTIVA' : 'MODO CONSULTA' }}
+              {{ r.isSubmitted ? 'CALIFICACIONES SELLADAS' : r.roundStatus === 'open' ? 'VOTACIÓN ACTIVA' : 'EN ESPERA DE APERTURA' }}
             </span>
 
             <NuxtLink :to="`/judge/rounds/${r.roundId}`">
               <button
                 class="h-9 px-4 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition cursor-pointer"
-                :class="r.isSubmitted ? 'bg-[#262626] hover:bg-[#393939] text-[#c6c6c6] border border-[#525252]' : 'bg-[#0f62fe] hover:bg-[#0353e9] text-white'"
+                :class="r.isSubmitted || r.roundStatus !== 'open' ? 'bg-[#262626] hover:bg-[#393939] text-[#c6c6c6] border border-[#525252]' : 'bg-[#0f62fe] hover:bg-[#0353e9] text-white'"
               >
-                <span>{{ r.isSubmitted ? 'Ver Mis Calificaciones' : 'Entrar a Calificar' }}</span>
+                <span>{{ r.isSubmitted ? 'Ver Mis Calificaciones' : r.roundStatus === 'open' ? 'Entrar a Calificar' : 'Ver Cabina (Pendiente)' }}</span>
                 <UIcon :name="r.isSubmitted ? 'lucide:eye' : 'lucide:arrow-right'" class="w-3.5 h-3.5" />
               </button>
             </NuxtLink>
